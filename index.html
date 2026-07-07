@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Gato Gordo • Finanças</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    body { background: #0f172a; }
+    .glass {
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .card-premium {
+      background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .progress-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .tab-active {
+      color: #fbbf24;
+      border-top: 2px solid #fbbf24;
+    }
+    .modal-overlay {
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+    }
+    input, select, textarea {
+      background: rgba(255,255,255,0.05) !important;
+      border: 1px solid rgba(255,255,255,0.1) !important;
+      color: #fff !important;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #fbbf24 !important;
+      outline: none;
+      ring: 1px solid #fbbf24;
+    }
+    button:active { transform: scale(0.97); }
+    .slide-in { animation: slideUp 0.3s ease; }
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body class="text-white pb-20">
+
+  <!-- Header fixo -->
+  <header class="fixed top-0 left-0 right-0 z-20 glass px-5 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="text-3xl">🐱💲</span>
+      <h1 class="text-xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gato Gordo</h1>
+    </div>
+    <span class="text-xs text-gray-400">Premium</span>
+  </header>
+
+  <!-- Conteúdo principal -->
+  <main class="mt-16 px-4 max-w-lg mx-auto pb-4">
+    <!-- Aba Pessoal -->
+    <div id="tab-pessoal" class="tab-content slide-in">
+      <!-- Patrimônio líquido -->
+      <div class="card-premium rounded-2xl p-5 mb-6">
+        <p class="text-gray-400 text-sm mb-1">💎 Patrimônio líquido</p>
+        <p id="patrimonio-total" class="text-3xl font-bold text-amber-400">R$ 0,00</p>
+      </div>
+
+      <!-- Contas Bancárias -->
+      <div class="mb-8">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-lg font-semibold">🏦 Contas Bancárias</h2>
+          <button onclick="openModal('conta')" class="text-amber-400 text-sm font-medium">+ Nova</button>
+        </div>
+        <div id="lista-contas" class="space-y-3"></div>
+      </div>
+
+      <!-- Cartões de Crédito -->
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-lg font-semibold">💳 Cartões de Crédito</h2>
+          <button onclick="openModal('cartao')" class="text-amber-400 text-sm font-medium">+ Novo</button>
+        </div>
+        <div id="lista-cartoes" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- Aba Compartilhado -->
+    <div id="tab-compartilhado" class="tab-content hidden slide-in">
+      <!-- Pessoas -->
+      <div class="mb-8">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-lg font-semibold">👥 Pessoas</h2>
+          <button onclick="openModal('pessoa')" class="text-amber-400 text-sm font-medium">+ Nova</button>
+        </div>
+        <div id="lista-pessoas" class="space-y-3 mb-4"></div>
+        <p class="text-gray-500 text-sm">Total de salários: <span id="total-salarios" class="text-white font-medium">R$ 0,00</span></p>
+      </div>
+
+      <!-- Contas a pagar -->
+      <div>
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-lg font-semibold">📋 Contas a Pagar</h2>
+          <button onclick="openModal('conta-compartilhada')" class="text-amber-400 text-sm font-medium">+ Nova</button>
+        </div>
+        <div id="lista-contas-compartilhadas" class="space-y-4"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Barra de navegação inferior -->
+  <nav class="fixed bottom-0 left-0 right-0 glass z-20 flex justify-around py-3">
+    <button id="btn-pessoal" class="tab-active flex flex-col items-center text-xs font-medium px-4 py-1" onclick="switchTab('pessoal')">
+      <span class="text-xl">🏠</span> Pessoal
+    </button>
+    <button id="btn-compartilhado" class="flex flex-col items-center text-xs font-medium text-gray-400 px-4 py-1" onclick="switchTab('compartilhado')">
+      <span class="text-xl">👥</span> Compartilhado
+    </button>
+  </nav>
+
+  <!-- Modal genérico -->
+  <div id="modal" class="fixed inset-0 z-30 flex items-center justify-center p-4 hidden">
+    <div class="modal-overlay absolute inset-0" onclick="closeModal()"></div>
+    <div class="glass rounded-2xl p-6 w-full max-w-sm relative z-10 slide-in">
+      <div id="modal-content"></div>
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+    </div>
+  </div>
+
+<script>
+  // ========== ESTADO GLOBAL ==========
+  const STORAGE_PESSOAL = 'gatogordo_pessoal';
+  const STORAGE_COMPARTILHADO = 'gatogordo_compart';
+
+  let dadosPessoal = { contas: [], cartoes: [] };
+  let dadosCompart = { pessoas: [], contas: [] };
+
+  function carregarDados() {
+    const p = localStorage.getItem(STORAGE_PESSOAL);
+    if (p) dadosPessoal = JSON.parse(p);
+    const c = localStorage.getItem(STORAGE_COMPARTILHADO);
+    if (c) dadosCompart = JSON.parse(c);
+  }
+  function salvarPessoal() {
+    localStorage.setItem(STORAGE_PESSOAL, JSON.stringify(dadosPessoal));
+  }
+  function salvarCompart() {
+    localStorage.setItem(STORAGE_COMPARTILHADO, JSON.stringify(dadosCompart));
+  }
+
+  // ========== FORMATAÇÃO ==========
+  const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const dt = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+
+  // ========== ABAS ==========
+  function switchTab(tab) {
+    document.getElementById('tab-pessoal').classList.toggle('hidden', tab !== 'pessoal');
+    document.getElementById('tab-compartilhado').classList.toggle('hidden', tab !== 'compartilhado');
+    document.getElementById('btn-pessoal').classList.toggle('tab-active', tab === 'pessoal');
+    document.getElementById('btn-pessoal').classList.toggle('text-gray-400', tab !== 'pessoal');
+    document.getElementById('btn-compartilhado').classList.toggle('tab-active', tab === 'compartilhado');
+    document.getElementById('btn-compartilhado').classList.toggle('text-gray-400', tab !== 'compartilhado');
+    if (tab === 'compartilhado') renderCompart();
+    if (tab === 'pessoal') renderPessoal();
+  }
+
+  // ========== MODAL ==========
+  let modalCallback = null;
+  function openModal(tipo, editIndex = null) {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modal-content');
+    modal.classList.remove('hidden');
+    if (tipo === 'conta') formConta(content, editIndex);
+    else if (tipo === 'cartao') formCartao(content, editIndex);
+    else if (tipo === 'pessoa') formPessoa(content, editIndex);
+    else if (tipo === 'conta-compartilhada') formContaCompart(content, editIndex);
+  }
+  function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
+  }
+
+  // ========== FORMULÁRIOS MODAIS ==========
+  function formConta(container, editIdx) {
+    const c = editIdx !== null ? dadosPessoal.contas[editIdx] : { nome:'', tipo:'corrente', saldo:0 };
+    container.innerHTML = `
+      <h3 class="text-lg font-semibold mb-4">${editIdx!==null?'Editar':'Nova'} Conta</h3>
+      <input id="c-nome" placeholder="Nome do banco/conta" value="${c.nome}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <select id="c-tipo" class="w-full p-3 rounded-lg mb-3 text-sm">
+        <option value="corrente" ${c.tipo==='corrente'?'selected':''}>Conta Corrente</option>
+        <option value="poupanca" ${c.tipo==='poupanca'?'selected':''}>Poupança</option>
+        <option value="carteira" ${c.tipo==='carteira'?'selected':''}>Carteira</option>
+        <option value="outro" ${c.tipo==='outro'?'selected':''}>Outro</option>
+      </select>
+      <input id="c-saldo" type="number" step="0.01" value="${c.saldo}" class="w-full p-3 rounded-lg mb-4 text-sm">
+      <button onclick="salvarConta(${editIdx!==null?editIdx:-1})" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg">Salvar</button>
+    `;
+  }
+  function salvarConta(idx) {
+    const nome = document.getElementById('c-nome').value.trim();
+    const tipo = document.getElementById('c-tipo').value;
+    const saldo = parseFloat(document.getElementById('c-saldo').value)||0;
+    if (!nome) return alert('Preencha o nome');
+    const obj = { nome, tipo, saldo };
+    if (idx === -1) dadosPessoal.contas.push(obj);
+    else dadosPessoal.contas[idx] = obj;
+    salvarPessoal(); closeModal(); renderPessoal();
+  }
+
+  function formCartao(container, editIdx) {
+    const c = editIdx !== null ? dadosPessoal.cartoes[editIdx] : { nome:'', limite:0, utilizado:0, fechamento:'', obs:'' };
+    container.innerHTML = `
+      <h3 class="text-lg font-semibold mb-4">${editIdx!==null?'Editar':'Novo'} Cartão</h3>
+      <input id="cart-nome" placeholder="Nome do cartão" value="${c.nome}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <input id="cart-limite" type="number" step="0.01" placeholder="Limite total" value="${c.limite}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <input id="cart-utilizado" type="number" step="0.01" placeholder="Valor utilizado (fatura atual)" value="${c.utilizado}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <label class="text-xs text-gray-400">Data de fechamento</label>
+      <input id="cart-fechamento" type="date" value="${c.fechamento}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <textarea id="cart-obs" rows="2" placeholder="Faturas futuras / observações" class="w-full p-3 rounded-lg mb-4 text-sm">${c.obs||''}</textarea>
+      <button onclick="salvarCartao(${editIdx!==null?editIdx:-1})" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg">Salvar</button>
+    `;
+  }
+  function salvarCartao(idx) {
+    const nome = document.getElementById('cart-nome').value.trim();
+    const limite = parseFloat(document.getElementById('cart-limite').value)||0;
+    const utilizado = parseFloat(document.getElementById('cart-utilizado').value)||0;
+    const fechamento = document.getElementById('cart-fechamento').value;
+    const obs = document.getElementById('cart-obs').value;
+    if (!nome) return alert('Preencha o nome');
+    const obj = { nome, limite, utilizado, fechamento, obs };
+    if (idx === -1) dadosPessoal.cartoes.push(obj);
+    else dadosPessoal.cartoes[idx] = obj;
+    salvarPessoal(); closeModal(); renderPessoal();
+  }
+
+  function formPessoa(container, editIdx) {
+    const p = editIdx !== null ? dadosCompart.pessoas[editIdx] : { nome:'', salario:0 };
+    container.innerHTML = `
+      <h3 class="text-lg font-semibold mb-4">${editIdx!==null?'Editar':'Nova'} Pessoa</h3>
+      <input id="p-nome" placeholder="Nome" value="${p.nome}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <input id="p-salario" type="number" step="0.01" placeholder="Salário mensal" value="${p.salario}" class="w-full p-3 rounded-lg mb-4 text-sm">
+      <button onclick="salvarPessoa(${editIdx!==null?editIdx:-1})" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg">Salvar</button>
+    `;
+  }
+  function salvarPessoa(idx) {
+    const nome = document.getElementById('p-nome').value.trim();
+    const salario = parseFloat(document.getElementById('p-salario').value)||0;
+    if (!nome) return alert('Preencha o nome');
+    const obj = { nome, salario };
+    if (idx === -1) dadosCompart.pessoas.push(obj);
+    else dadosCompart.pessoas[idx] = obj;
+    salvarCompart(); closeModal(); renderCompart();
+  }
+
+  function formContaCompart(container, editIdx) {
+    const conta = editIdx !== null ? dadosCompart.contas[editIdx] : null;
+    const desc = conta ? conta.descricao : '';
+    const valorTotal = conta ? conta.valor : '';
+    const participantes = conta ? conta.participantes : []; // array de { pessoaIdx, valor }
+    let checkboxesHTML = '';
+    dadosCompart.pessoas.forEach((p, i) => {
+      const marcado = participantes.some(pt => pt.pessoaIdx === i);
+      checkboxesHTML += `
+        <label class="flex items-center gap-2 mb-2 text-sm">
+          <input type="checkbox" class="pessoa-check" value="${i}" ${marcado?'checked':''}> ${p.nome} (${fmt(p.salario)})
+        </label>`;
+    });
+    container.innerHTML = `
+      <h3 class="text-lg font-semibold mb-4">${editIdx!==null?'Editar':'Nova'} Conta Compartilhada</h3>
+      <input id="cc-desc" placeholder="Descrição" value="${desc}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <input id="cc-valor" type="number" step="0.01" placeholder="Valor total" value="${valorTotal}" class="w-full p-3 rounded-lg mb-3 text-sm">
+      <div class="mb-3 text-sm text-gray-300">Participantes:</div>
+      <div id="cc-participantes" class="mb-3">${checkboxesHTML}</div>
+      <button onclick="calcularDivisao()" class="w-full bg-amber-600 text-black font-semibold py-2 rounded-lg mb-3 text-sm">Calcular divisão proporcional</button>
+      <div id="cc-valores-individuais" class="space-y-2 mb-4"></div>
+      <button onclick="salvarContaCompart(${editIdx!==null?editIdx:-1})" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-lg">Salvar</button>
+    `;
+    // preencher valores se editar
+    if (conta) {
+      participantes.forEach(p => {
+        document.querySelector(`.pessoa-check[value="${p.pessoaIdx}"]`).checked = true;
+      });
+      atualizarCamposIndividuais(participantes);
+    }
+  }
+
+  function calcularDivisao() {
+    const checks = document.querySelectorAll('.pessoa-check:checked');
+    const valorTotal = parseFloat(document.getElementById('cc-valor').value)||0;
+    if (checks.length === 0 || valorTotal <= 0) return;
+    let somaSalarios = 0;
+    const selecionados = [];
+    checks.forEach(cb => {
+      const idx = parseInt(cb.value);
+      selecionados.push({ idx, salario: dadosCompart.pessoas[idx].salario });
+      somaSalarios += dadosCompart.pessoas[idx].salario;
+    });
+    const valores = selecionados.map(s => ({
+      pessoaIdx: s.idx,
+      valor: (s.salario / somaSalarios) * valorTotal
+    }));
+    atualizarCamposIndividuais(valores);
+  }
+
+  function atualizarCamposIndividuais(valores) {
+    const container = document.getElementById('cc-valores-individuais');
+    container.innerHTML = valores.map(v => `
+      <div class="flex items-center gap-2">
+        <span class="text-xs w-20">${dadosCompart.pessoas[v.pessoaIdx].nome}</span>
+        <input type="number" step="0.01" value="${v.valor.toFixed(2)}" data-pessoa="${v.pessoaIdx}" class="valor-individual w-full p-2 rounded text-sm">
+      </div>
+    `).join('');
+  }
+
+  function salvarContaCompart(idx) {
+    const desc = document.getElementById('cc-desc').value.trim();
+    const valor = parseFloat(document.getElementById('cc-valor').value)||0;
+    if (!desc) return alert('Preencha descrição');
+    const participantes = [];
+    document.querySelectorAll('.valor-individual').forEach(input => {
+      const pessoaIdx = parseInt(input.dataset.pessoa);
+      const valorPessoa = parseFloat(input.value)||0;
+      participantes.push({ pessoaIdx, valor: valorPessoa });
+    });
+    const obj = { descricao: desc, valor, participantes };
+    if (idx === -1) dadosCompart.contas.push(obj);
+    else dadosCompart.contas[idx] = obj;
+    salvarCompart(); closeModal(); renderCompart();
+  }
+
+  // ========== RENDERIZAÇÃO ==========
+  function renderPessoal() {
+    const totalSaldo = dadosPessoal.contas.reduce((s, c) => s + c.saldo, 0);
+    document.getElementById('patrimonio-total').textContent = fmt(totalSaldo);
+
+    const listaContas = document.getElementById('lista-contas');
+    listaContas.innerHTML = dadosPessoal.contas.map((c, i) => `
+      <div class="glass rounded-xl p-4 flex justify-between items-center">
+        <div>
+          <p class="font-medium">${c.nome}</p>
+          <p class="text-xs text-gray-400">${c.tipo}</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="font-semibold text-amber-400">${fmt(c.saldo)}</span>
+          <button onclick="openModal('conta', ${i})" class="text-gray-400 hover:text-white">✎</button>
+          <button onclick="excluirConta(${i})" class="text-red-400 hover:text-red-300">✕</button>
+        </div>
+      </div>
+    `).join('');
+
+    const listaCartoes = document.getElementById('lista-cartoes');
+    listaCartoes.innerHTML = dadosPessoal.cartoes.map((c, i) => {
+      const pct = c.limite > 0 ? (c.utilizado / c.limite * 100) : 0;
+      const cor = pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-yellow-500' : 'bg-green-500';
+      return `
+        <div class="glass rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <p class="font-medium">${c.nome}</p>
+              <p class="text-xs text-gray-400">Fecha: ${c.fechamento ? dt(c.fechamento) : 'n/d'}</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="openModal('cartao', ${i})" class="text-gray-400 hover:text-white">✎</button>
+              <button onclick="excluirCartao(${i})" class="text-red-400 hover:text-red-300">✕</button>
+            </div>
+          </div>
+          <div class="flex justify-between text-sm mb-1">
+            <span>Utilizado: ${fmt(c.utilizado)}</span>
+            <span>Limite: ${fmt(c.limite)}</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill ${cor}" style="width:${Math.min(pct,100)}%"></div></div>
+          ${c.obs ? `<p class="text-xs text-gray-500 mt-2">📌 ${c.obs}</p>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function renderCompart() {
+    // Pessoas
+    const listaPessoas = document.getElementById('lista-pessoas');
+    const totalSal = dadosCompart.pessoas.reduce((s, p) => s + p.salario, 0);
+    document.getElementById('total-salarios').textContent = fmt(totalSal);
+    listaPessoas.innerHTML = dadosCompart.pessoas.map((p, i) => `
+      <div class="glass rounded-xl p-3 flex justify-between items-center">
+        <span class="font-medium">${p.nome}</span>
+        <div class="flex items-center gap-3">
+          <span class="text-amber-400 font-semibold">${fmt(p.salario)}</span>
+          <button onclick="openModal('pessoa', ${i})" class="text-gray-400">✎</button>
+          <button onclick="excluirPessoa(${i})" class="text-red-400">✕</button>
+        </div>
+      </div>
+    `).join('');
+
+    // Contas compartilhadas
+    const listaContas = document.getElementById('lista-contas-compartilhadas');
+    listaContas.innerHTML = dadosCompart.contas.map((c, i) => {
+      const detalhes = c.participantes.map(p => {
+        const pessoa = dadosCompart.pessoas[p.pessoaIdx];
+        return `<div class="flex justify-between text-xs"><span>${pessoa ? pessoa.nome : '?'}</span><span class="text-amber-400">${fmt(p.valor)}</span></div>`;
+      }).join('');
+      return `
+        <div class="glass rounded-xl p-4">
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-medium">${c.descricao}</p>
+              <p class="text-lg font-bold text-amber-400">${fmt(c.valor)}</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="openModal('conta-compartilhada', ${i})" class="text-gray-400">✎</button>
+              <button onclick="excluirContaCompart(${i})" class="text-red-400">✕</button>
+            </div>
+          </div>
+          <div class="mt-2 space-y-1">${detalhes}</div>
+        </div>`;
+    }).join('');
+  }
+
+  // Exclusões
+  function excluirConta(i) { if(confirm('Excluir conta?')) { dadosPessoal.contas.splice(i,1); salvarPessoal(); renderPessoal(); } }
+  function excluirCartao(i) { if(confirm('Excluir cartão?')) { dadosPessoal.cartoes.splice(i,1); salvarPessoal(); renderPessoal(); } }
+  function excluirPessoa(i) { if(confirm('Excluir pessoa? Isso afetará contas compartilhadas.')) { dadosCompart.pessoas.splice(i,1); salvarCompart(); renderCompart(); } }
+  function excluirContaCompart(i) { if(confirm('Excluir conta?')) { dadosCompart.contas.splice(i,1); salvarCompart(); renderCompart(); } }
+
+  // Inicialização
+  carregarDados();
+  renderPessoal();
+</script>
+</body>
+</html>

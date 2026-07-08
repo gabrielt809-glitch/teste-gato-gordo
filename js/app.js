@@ -188,6 +188,14 @@
         renderPessoal();
     };
 
+    window.mudarMesDetalhe = function(delta, tipo, idx) {
+        mesRefPessoal += delta;
+        if (mesRefPessoal > 11) { mesRefPessoal = 0; anoRefPessoal++; }
+        if (mesRefPessoal < 0) { mesRefPessoal = 11; anoRefPessoal--; }
+        if (tipo === 'conta') abrirTelaConta(idx);
+        else abrirTelaCartao(idx);
+    };
+
     window.switchTab = function(tab) {
         telaAtual = tab;
         document.getElementById('tab-pessoal').classList.toggle('hidden', tab !== 'pessoal');
@@ -205,7 +213,7 @@
       const cartao = p.cartoes[idx];
       if (!cartao) return;
       
-      const transCartaoMes = p.transacoes.filter(t => t.cartaoId === cartao.id && new Date(t.data).getMonth() === mesRefPessoal && new Date(t.data).getFullYear() === anoRefPessoal);
+      const transCartaoMes = p.transacoes.filter(t => t.cartaoId === cartao.id && new Date(t.data + 'T00:00:00').getMonth() === mesRefPessoal && new Date(t.data + 'T00:00:00').getFullYear() === anoRefPessoal);
       const totalFaturaMes = transCartaoMes.reduce((s, t) => s + t.valor, 0);
 
       const pct = cartao.limite > 0 ? (cartao.utilizado / cartao.limite * 100) : 0;
@@ -225,10 +233,16 @@
               <div class="progress-bar"><div class="progress-fill ${cor}" style="width:${Math.min(pct,100)}%"></div></div>
             </div>
           </div>
+
+          <div class="flex items-center justify-between glass rounded-2xl p-3">
+            <button onclick="mudarMesDetalhe(-1, 'cartao', ${idx})" class="text-amber-400 text-lg font-bold px-2">&lt;</button>
+            <span class="font-semibold text-sm">${nomeMesAno(mesRefPessoal, anoRefPessoal)}</span>
+            <button onclick="mudarMesDetalhe(1, 'cartao', ${idx})" class="text-amber-400 text-lg font-bold px-2">&gt;</button>
+          </div>
           
           <div class="space-y-2">
             <div class="flex justify-between items-center px-1">
-                <h3 class="text-lg font-semibold">Fatura de ${nomeMesAno(mesRefPessoal, anoRefPessoal)}</h3>
+                <h3 class="text-lg font-semibold">Fatura do Mês</h3>
             </div>
             <div class="card-premium rounded-2xl p-4 flex justify-between items-center">
                 <div>
@@ -247,7 +261,7 @@
                     <div class="card-premium rounded-xl p-3 flex justify-between items-center text-sm">
                         <div>
                             <p>${t.descricao}</p>
-                            <p class="text-[10px] text-gray-500">${new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                            <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                         </div>
                         <p class="font-bold text-red-400">${fmt(t.valor)}</p>
                     </div>
@@ -258,8 +272,8 @@
           <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
           
           <!-- Botão Flutuante (FAB) -->
-          <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold z-30 active:scale-90 transition-transform leading-none">
-            <span class="mb-1">+</span>
+          <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-4xl font-light z-30 active:scale-90 transition-transform">
+            <div style="margin-top: -4px;">+</div>
           </button>
         </div>
       `;
@@ -275,7 +289,8 @@
         const conta = perfil()?.contas[idx];
         if (!conta) return;
         
-        const transConta = perfil().transacoes.filter(t => t.contaId === conta.id || t.contaDestinoId === conta.id);
+        const transContaMes = perfil().transacoes.filter(t => (t.contaId === conta.id || t.contaDestinoId === conta.id) && new Date(t.data + 'T00:00:00').getMonth() === mesRefPessoal && new Date(t.data + 'T00:00:00').getFullYear() === anoRefPessoal);
+        
         let saldoAtual = conta.saldoInicial;
         perfil().transacoes.forEach(t => {
             if (t.contaId === conta.id) {
@@ -293,28 +308,34 @@
                     <p class="text-3xl font-bold text-amber-400">${fmt(saldoAtual)}</p>
                 </div>
 
+                <div class="flex items-center justify-between glass rounded-2xl p-3">
+                    <button onclick="mudarMesDetalhe(-1, 'conta', ${idx})" class="text-amber-400 text-lg font-bold px-2">&lt;</button>
+                    <span class="font-semibold text-sm">${nomeMesAno(mesRefPessoal, anoRefPessoal)}</span>
+                    <button onclick="mudarMesDetalhe(1, 'conta', ${idx})" class="text-amber-400 text-lg font-bold px-2">&gt;</button>
+                </div>
+
                 <div class="space-y-2">
-                    <h3 class="text-lg font-semibold px-1">Transações da Conta</h3>
+                    <h3 class="text-lg font-semibold px-1">Lançamentos do Mês</h3>
                     <div class="space-y-2">
-                        ${transConta.slice().reverse().map(t => `
+                        ${transContaMes.slice().reverse().map(t => `
                             <div class="card-premium rounded-xl p-3 flex justify-between items-center">
                                 <div>
                                     <p class="text-sm font-medium">${t.descricao}</p>
-                                    <p class="text-[10px] text-gray-500">${new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                                    <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                                 </div>
                                 <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">
                                     ${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}
                                 </p>
                             </div>
-                        `).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma transação</p>'}
+                        `).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma transação este mês</p>'}
                     </div>
                 </div>
 
                 <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
 
                 <!-- Botão Flutuante (FAB) -->
-                <button onclick="openModal('transacao', null, ${conta.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold z-30 active:scale-90 transition-transform">
-                    +
+                <button onclick="openModal('transacao', null, ${conta.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-4xl font-light z-30 active:scale-90 transition-transform">
+                    <div style="margin-top: -4px;">+</div>
                 </button>
             </div>
         `;

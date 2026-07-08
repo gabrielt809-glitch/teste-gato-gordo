@@ -52,10 +52,19 @@ button:active { transform: scale(0.96); }
 }
 .vencimento-proximo { border-left: 3px solid #EF4444; }
 .modal-content {
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
+  padding: 1.5rem !important;
+}
+.modal-content input, .modal-content select {
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+.modal-content label {
+  display: block;
+  margin-bottom: 0.25rem;
 }
 input[type="date"] {
   max-width: 100% !important;

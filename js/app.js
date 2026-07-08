@@ -80,30 +80,49 @@
       const perfis = Object.keys(dadosPessoal.perfis);
       if (perfis.length === 0) {
         formDiv.innerHTML = `
-          <p class="text-sm text-gray-300 mb-3">Crie seu perfil para começar</p>
-          <input id="login-nome" placeholder="Nome do perfil" class="w-full p-3 rounded-xl mb-2 text-sm">
-          <input id="login-senha" type="password" placeholder="Senha" class="w-full p-3 rounded-xl mb-3 text-sm">
-          <button onclick="criarPerfilLogin()" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-xl text-sm">Criar perfil</button>
+          <p class="text-sm text-gray-300 mb-4">Crie seu perfil para começar</p>
+          <div class="space-y-3">
+            <input id="login-nome" placeholder="Nome do perfil" class="w-full p-4 rounded-2xl text-sm">
+            <input id="login-senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl text-sm">
+            <button onclick="criarPerfilLogin()" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl text-sm shadow-lg shadow-amber-500/20">Criar e Entrar</button>
+          </div>
         `;
       } else {
-        let botoesPerfis = perfis.map(nome => `<button onclick="selecionarPerfilLogin('${nome}')" class="w-full glass rounded-xl p-3 text-left hover:bg-white/5 transition text-sm">${nome}</button>`).join('');
+        let listaPerfis = perfis.map(nome => `
+          <button onclick="selecionarPerfilLogin('${nome}')" class="w-full bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-white/10 transition group">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold">${nome[0].toUpperCase()}</div>
+              <span class="font-medium text-sm">${nome}</span>
+            </div>
+            <span class="text-gray-500 group-hover:text-amber-500 transition">→</span>
+          </button>
+        `).join('');
         formDiv.innerHTML = `
-          <p class="text-sm text-gray-300 mb-2">Selecione o perfil</p>
-          <div class="space-y-2 mb-4">${botoesPerfis}</div>
-          <div id="senha-group" class="hidden">
-            <input id="login-senha" type="password" placeholder="Senha" class="w-full p-3 rounded-xl mb-2 text-sm">
-            <p id="login-erro" class="text-red-400 text-xs mb-2 hidden">Senha incorreta</p>
-            <button onclick="entrarPerfil()" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-xl text-sm">Entrar</button>
+          <p class="text-sm text-gray-400 mb-4">Bem-vindo de volta!</p>
+          <div class="space-y-2 mb-6">${listaPerfis}</div>
+          <div id="senha-group" class="hidden slide-in">
+            <p class="text-xs text-amber-500 mb-2 font-semibold">Perfil: <span id="nome-perfil-selecionado"></span></p>
+            <input id="login-senha" type="password" placeholder="Digite sua senha" class="w-full p-4 rounded-2xl mb-3 text-sm border-amber-500/50">
+            <p id="login-erro" class="text-red-400 text-xs mb-3 hidden">Senha incorreta. Tente novamente.</p>
+            <div class="flex gap-2">
+              <button onclick="renderizarLogin()" class="flex-1 bg-white/5 py-4 rounded-2xl text-sm font-medium">Voltar</button>
+              <button onclick="entrarPerfil()" class="flex-[2] bg-amber-500 text-black font-bold py-4 rounded-2xl text-sm shadow-lg shadow-amber-500/20">Entrar</button>
+            </div>
           </div>
-          <p class="text-xs text-gray-400 mt-3">ou</p>
-          <button onclick="mostrarCriacaoPerfil()" class="w-full bg-amber-500/20 text-amber-400 py-3 rounded-xl text-sm mt-2">Criar novo perfil</button>
+          <div id="btn-novo-perfil-container">
+            <div class="flex items-center gap-4 my-6"><div class="h-px flex-1 bg-white/5"></div><span class="text-[10px] text-gray-600 uppercase tracking-widest">ou</span><div class="h-px flex-1 bg-white/5"></div></div>
+            <button onclick="mostrarCriacaoPerfil()" class="w-full border border-amber-500/30 text-amber-500 py-4 rounded-2xl text-sm font-medium hover:bg-amber-500/5 transition">Criar novo perfil</button>
+          </div>
         `;
       }
     }
 
     window.selecionarPerfilLogin = function(nome) {
       window.perfilSelecionado = nome;
+      document.getElementById('nome-perfil-selecionado').textContent = nome;
       document.getElementById('senha-group').classList.remove('hidden');
+      document.getElementById('btn-novo-perfil-container').classList.add('hidden');
+      document.querySelector('#login-form > div.space-y-2').classList.add('hidden');
       document.getElementById('login-senha').focus();
     };
 
@@ -316,14 +335,32 @@
         <div class="space-y-4">
           <div class="glass rounded-2xl p-5">
             <h2 class="text-xl font-bold">${cartao.nome}</h2>
-            <p class="text-gray-400 text-sm">Fecha ${cartao.fechamento ? dt(cartao.fechamento) : 'n/d'}</p>
+            <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] text-gray-400 uppercase tracking-wider">
+                <p>Fechamento: Dia ${cartao.diaFechamento}</p>
+                <p>Vencimento: Dia ${cartao.diaVencimento}</p>
+            </div>
             <div class="mt-4">
               <div class="flex justify-between text-sm mb-1"><span>Utilizado</span><span class="font-semibold text-amber-400">${fmt(cartao.utilizado)}</span></div>
-              <div class="flex justify-between text-sm mb-2"><span>Limite</span><span>${fmt(cartao.limite)}</span></div>
+              <div class="flex justify-between text-sm mb-2"><span>Disponível</span><span>${fmt(cartao.limite - cartao.utilizado)}</span></div>
               <div class="progress-bar"><div class="progress-fill ${cor}" style="width:${Math.min(pct,100)}%"></div></div>
             </div>
           </div>
-          <button onclick="voltarParaApp()" class="w-full glass py-2 rounded-xl text-gray-300">Voltar</button>
+          
+          <div class="space-y-2">
+            <h3 class="text-lg font-semibold px-1">Faturas</h3>
+            <div class="card-premium rounded-2xl p-4 flex justify-between items-center">
+                <div>
+                    <p class="font-medium">Fatura Atual</p>
+                    <p class="text-xs text-gray-500">Vence em ${cartao.diaVencimento}/${mesRefPessoal+1}</p>
+                </div>
+                <div class="text-right">
+                    <p class="font-bold text-red-400">${fmt(cartao.utilizado)}</p>
+                    <button onclick="pagarFatura(${idx})" class="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded-md mt-1">PAGAR</button>
+                </div>
+            </div>
+          </div>
+          
+          <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
         </div>
       `;
       document.getElementById('detalhe-conteudo').innerHTML = html;
@@ -332,6 +369,29 @@
       document.getElementById('barra-inferior').classList.add('hidden');
       document.getElementById('btn-voltar').classList.remove('hidden');
       telaAtual = 'detalhe-cartao';
+    };
+    
+    window.pagarFatura = function(idx) {
+        const p = perfil();
+        const cartao = p.cartoes[idx];
+        if (cartao.utilizado <= 0) return alert('Não há valor para pagar');
+        
+        if (p.contas.length === 0) return alert('Crie uma conta primeiro para pagar a fatura');
+        
+        const contaId = p.contas[0].id; // Paga com a primeira conta por padrão para simplificar
+        const valor = cartao.utilizado;
+        
+        p.transacoes.push({
+            id: Date.now(),
+            tipo: 'despesa',
+            descricao: `Pagamento Fatura: ${cartao.nome}`,
+            valor: valor,
+            data: new Date().toISOString().split('T')[0],
+            contaId: contaId
+        });
+        
+        cartao.utilizado = 0;
+        salvarPessoal(); renderPessoal(); abrirTelaCartao(idx);
     };
 
     window.openModal = function(tipo, editIndex = null, contaPreSelecionada = null) {
@@ -390,7 +450,7 @@
 
     function formCartao(content, editIndex) {
         const p = perfil();
-        const c = editIndex !== null ? p.cartoes[editIndex] : { nome: '', limite: 0, utilizado: 0, fechamento: '' };
+        const c = editIndex !== null ? p.cartoes[editIndex] : { nome: '', limite: 0, utilizado: 0, diaFechamento: 1, diaVencimento: 10 };
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-4">${editIndex !== null ? 'Editar' : 'Novo'} Cartão</h3>
             <div class="space-y-3">
@@ -400,7 +460,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="text-xs text-gray-400 ml-1">Limite</label>
+                        <label class="text-xs text-gray-400 ml-1">Limite Total</label>
                         <input id="f-cartao-limite" type="number" step="0.01" value="${c.limite}" placeholder="0,00" class="w-full p-3 rounded-xl">
                     </div>
                     <div>
@@ -408,7 +468,17 @@
                         <input id="f-cartao-utilizado" type="number" step="0.01" value="${c.utilizado}" placeholder="0,00" class="w-full p-3 rounded-xl">
                     </div>
                 </div>
-                <button onclick="salvarCartao(${editIndex})" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-amber-500/20">Salvar Cartão</button>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400 ml-1">Dia de Fechamento</label>
+                        <input id="f-cartao-fechamento" type="number" min="1" max="31" value="${c.diaFechamento}" class="w-full p-3 rounded-xl">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 ml-1">Dia de Vencimento</label>
+                        <input id="f-cartao-vencimento" type="number" min="1" max="31" value="${c.diaVencimento}" class="w-full p-3 rounded-xl">
+                    </div>
+                </div>
+                <button onclick="salvarCartao(${editIndex})" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2 shadow-lg shadow-amber-500/20">Salvar Cartão</button>
             </div>
         `;
     }
@@ -417,28 +487,44 @@
         const nome = document.getElementById('f-cartao-nome').value;
         const limite = parseFloat(document.getElementById('f-cartao-limite').value) || 0;
         const utilizado = parseFloat(document.getElementById('f-cartao-utilizado').value) || 0;
+        const diaFechamento = parseInt(document.getElementById('f-cartao-fechamento').value);
+        const diaVencimento = parseInt(document.getElementById('f-cartao-vencimento').value);
+        
         if (!nome) return alert('Nome obrigatório');
+        const dados = { nome, limite, utilizado, diaFechamento, diaVencimento };
+        
         if (idx !== null) {
-            p.cartoes[idx] = { ...p.cartoes[idx], nome, limite, utilizado };
+            p.cartoes[idx] = { ...p.cartoes[idx], ...dados };
         } else {
-            p.cartoes.push({ id: Date.now(), nome, limite, utilizado });
+            p.cartoes.push({ id: Date.now(), ...dados, faturas: [] });
         }
         salvarPessoal(); renderPessoal(); closeModal();
     };
 
     function formTransacao(content, editIndex, contaPre) {
         const p = perfil();
-        const t = editIndex !== null ? p.transacoes[editIndex] : { tipo: 'despesa', valor: 0, descricao: '', data: new Date().toISOString().split('T')[0], contaId: contaPre || (p.contas[0]?.id || '') };
+        const t = editIndex !== null ? p.transacoes[editIndex] : { tipo: 'despesa', valor: 0, descricao: '', data: new Date().toISOString().split('T')[0], contaId: contaPre || (p.contas[0]?.id || ''), recorrencia: 'nenhuma' };
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-4">Nova Transação</h3>
             <div class="space-y-3">
-                <div>
-                    <label class="text-xs text-gray-400 ml-1">Tipo</label>
-                    <select id="f-trans-tipo" class="w-full p-3 rounded-xl" onchange="toggleTransDestino()">
-                        <option value="despesa" ${t.tipo==='despesa'?'selected':''}>Despesa</option>
-                        <option value="receita" ${t.tipo==='receita'?'selected':''}>Receita</option>
-                        <option value="transferencia" ${t.tipo==='transferencia'?'selected':''}>Transferência</option>
-                    </select>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400 ml-1">Tipo</label>
+                        <select id="f-trans-tipo" class="w-full p-3 rounded-xl" onchange="toggleTransDestino()">
+                            <option value="despesa" ${t.tipo==='despesa'?'selected':''}>Despesa</option>
+                            <option value="receita" ${t.tipo==='receita'?'selected':''}>Receita</option>
+                            <option value="transferencia" ${t.tipo==='transferencia'?'selected':''}>Transferência</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 ml-1">Recorrência</label>
+                        <select id="f-trans-recorrencia" class="w-full p-3 rounded-xl">
+                            <option value="nenhuma" ${t.recorrencia==='nenhuma'?'selected':''}>Nenhuma</option>
+                            <option value="semanal" ${t.recorrencia==='semanal'?'selected':''}>Semanal</option>
+                            <option value="quinzenal" ${t.recorrencia==='quinzenal'?'selected':''}>Quinzenal</option>
+                            <option value="mensal" ${t.recorrencia==='mensal'?'selected':''}>Mensal</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 ml-1">Descrição</label>
@@ -466,7 +552,7 @@
                         ${p.contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
                     </select>
                 </div>
-                <button onclick="salvarTransacao()" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-amber-500/20">Salvar Transação</button>
+                <button onclick="salvarTransacao()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2 shadow-lg shadow-amber-500/20">Salvar Transação</button>
             </div>
         `;
         window.toggleTransDestino = () => {
@@ -479,14 +565,39 @@
     window.salvarTransacao = function() {
         const p = perfil();
         const tipo = document.getElementById('f-trans-tipo').value;
+        const recorrencia = document.getElementById('f-trans-recorrencia').value;
         const descricao = document.getElementById('f-trans-desc').value;
         const valor = parseFloat(document.getElementById('f-trans-valor').value) || 0;
-        const data = document.getElementById('f-trans-data').value;
+        const dataStr = document.getElementById('f-trans-data').value;
         const contaId = parseInt(document.getElementById('f-trans-conta').value);
         const contaDestinoId = tipo === 'transferencia' ? parseInt(document.getElementById('f-trans-conta-dest').value) : null;
         
         if (!descricao || valor <= 0) return alert('Preencha os campos corretamente');
-        p.transacoes.push({ id: Date.now(), tipo, descricao, valor, data, contaId, contaDestinoId });
+        
+        // Se houver recorrência, gera múltiplas transações (ex: para os próximos 12 meses)
+        if (recorrencia !== 'nenhuma') {
+            const dataBase = new Date(dataStr + 'T00:00:00');
+            for (let i = 0; i < 12; i++) {
+                const novaData = new Date(dataBase);
+                if (recorrencia === 'semanal') novaData.setDate(dataBase.getDate() + (i * 7));
+                else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
+                else if (recorrencia === 'mensal') novaData.setMonth(dataBase.getMonth() + i);
+                
+                p.transacoes.push({ 
+                    id: Date.now() + i, 
+                    tipo, 
+                    recorrencia, 
+                    descricao: `${descricao} (${i+1}/12)`, 
+                    valor, 
+                    data: novaData.toISOString().split('T')[0], 
+                    contaId, 
+                    contaDestinoId 
+                });
+            }
+        } else {
+            p.transacoes.push({ id: Date.now(), tipo, recorrencia, descricao, valor, data: dataStr, contaId, contaDestinoId });
+        }
+        
         salvarPessoal(); renderPessoal(); closeModal();
         if (telaAtual === 'extrato-conta') abrirTelaConta(p.contas.findIndex(c => c.id === contaId));
     };
@@ -499,7 +610,10 @@
         const listaPessoas = document.getElementById('lista-pessoas');
         listaPessoas.innerHTML = dadosCompart.pessoas.map((p, i) => `
             <div class="card-premium rounded-xl p-3 flex justify-between items-center">
-                <span>${p.nome}</span>
+                <div>
+                    <p class="font-medium">${p.nome}</p>
+                    <p class="text-[10px] text-gray-500">Salário: ${fmt(p.salario || 0)}</p>
+                </div>
                 <button onclick="excluirPessoa(${i})" class="text-red-400 text-xs">✕</button>
             </div>
         `).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma pessoa</p>';
@@ -517,12 +631,30 @@
         `).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma conta este mês</p>';
 
         const resumo = document.getElementById('resumo-mensal-compart');
-        const total = contasMes.reduce((s, c) => s + c.valor, 0);
-        const porPessoa = dadosCompart.pessoas.length > 0 ? total / dadosCompart.pessoas.length : 0;
-        resumo.innerHTML = `
-            <div class="flex justify-between"><span>Total:</span><span class="font-bold text-amber-400">${fmt(total)}</span></div>
-            <div class="flex justify-between text-sm text-gray-400"><span>Por pessoa (${dadosCompart.pessoas.length}):</span><span>${fmt(porPessoa)}</span></div>
-        `;
+        const totalDespesas = contasMes.reduce((s, c) => s + c.valor, 0);
+        const totalSalarios = dadosCompart.pessoas.reduce((s, p) => s + (p.salario || 0), 0);
+        
+        let rateioHtml = `<div class="flex justify-between mb-2 border-b border-white/5 pb-2"><span>Total Despesas:</span><span class="font-bold text-amber-400">${fmt(totalDespesas)}</span></div>`;
+        
+        if (dadosCompart.pessoas.length > 0 && totalSalarios > 0) {
+            dadosCompart.pessoas.forEach(p => {
+                const percentual = (p.salario || 0) / totalSalarios;
+                const valorDevido = totalDespesas * percentual;
+                rateioHtml += `
+                    <div class="flex justify-between text-xs py-1">
+                        <span class="text-gray-400">${p.nome} (${(percentual * 100).toFixed(1)}%):</span>
+                        <span class="font-medium text-white">${fmt(valorDevido)}</span>
+                    </div>
+                `;
+            });
+        } else if (dadosCompart.pessoas.length > 0) {
+            const valorIgual = totalDespesas / dadosCompart.pessoas.length;
+            dadosCompart.pessoas.forEach(p => {
+                rateioHtml += `<div class="flex justify-between text-xs py-1"><span class="text-gray-400">${p.nome}:</span><span class="font-medium text-white">${fmt(valorIgual)}</span></div>`;
+            });
+        }
+        
+        resumo.innerHTML = rateioHtml;
     }
 
     function formPessoa(content, editIndex) {
@@ -533,14 +665,19 @@
                     <label class="text-xs text-gray-400 ml-1">Nome da Pessoa</label>
                     <input id="f-pessoa-nome" placeholder="Ex: Maria, João" class="w-full p-3 rounded-xl">
                 </div>
+                <div>
+                    <label class="text-xs text-gray-400 ml-1">Salário / Renda</label>
+                    <input id="f-pessoa-salario" type="number" step="0.01" placeholder="0,00" class="w-full p-3 rounded-xl">
+                </div>
                 <button onclick="salvarPessoa()" class="w-full bg-amber-500 text-black font-semibold py-3 rounded-xl mt-2 shadow-lg shadow-amber-500/20">Adicionar Pessoa</button>
             </div>
         `;
     }
     window.salvarPessoa = function() {
         const nome = document.getElementById('f-pessoa-nome').value;
+        const salario = parseFloat(document.getElementById('f-pessoa-salario').value) || 0;
         if (!nome) return;
-        dadosCompart.pessoas.push({ nome });
+        dadosCompart.pessoas.push({ nome, salario });
         salvarCompart(); renderCompart(); closeModal();
     };
 

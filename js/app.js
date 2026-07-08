@@ -201,10 +201,16 @@
     };
 
     window.abrirTelaCartao = function(idx) {
-      const cartao = perfil()?.cartoes[idx];
+      const p = perfil();
+      const cartao = p.cartoes[idx];
       if (!cartao) return;
+      
+      const transCartaoMes = p.transacoes.filter(t => t.cartaoId === cartao.id && new Date(t.data).getMonth() === mesRefPessoal && new Date(t.data).getFullYear() === anoRefPessoal);
+      const totalFaturaMes = transCartaoMes.reduce((s, t) => s + t.valor, 0);
+
       const pct = cartao.limite > 0 ? (cartao.utilizado / cartao.limite * 100) : 0;
       const cor = pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-yellow-500' : 'bg-emerald-500';
+      
       const html = `
         <div class="space-y-4 pb-20">
           <div class="glass rounded-2xl p-5">
@@ -214,31 +220,46 @@
                 <p>Vencimento: Dia ${cartao.diaVencimento}</p>
             </div>
             <div class="mt-4">
-              <div class="flex justify-between text-sm mb-1"><span>Utilizado</span><span class="font-semibold text-amber-400">${fmt(cartao.utilizado)}</span></div>
+              <div class="flex justify-between text-sm mb-1"><span>Total Utilizado</span><span class="font-semibold text-amber-400">${fmt(cartao.utilizado)}</span></div>
               <div class="flex justify-between text-sm mb-2"><span>Disponível</span><span>${fmt(cartao.limite - cartao.utilizado)}</span></div>
               <div class="progress-bar"><div class="progress-fill ${cor}" style="width:${Math.min(pct,100)}%"></div></div>
             </div>
           </div>
           
           <div class="space-y-2">
-            <h3 class="text-lg font-semibold px-1">Faturas</h3>
+            <div class="flex justify-between items-center px-1">
+                <h3 class="text-lg font-semibold">Fatura de ${nomeMesAno(mesRefPessoal, anoRefPessoal)}</h3>
+            </div>
             <div class="card-premium rounded-2xl p-4 flex justify-between items-center">
                 <div>
-                    <p class="font-medium">Fatura Atual</p>
+                    <p class="font-medium">Total do Mês</p>
                     <p class="text-xs text-gray-500">Vence em ${cartao.diaVencimento}/${mesRefPessoal+1}</p>
                 </div>
                 <div class="text-right">
-                    <p class="font-bold text-red-400">${fmt(cartao.utilizado)}</p>
-                    <button onclick="pagarFatura(${idx})" class="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded-md mt-1">PAGAR</button>
+                    <p class="font-bold text-red-400">${fmt(totalFaturaMes)}</p>
+                    <button onclick="pagarFatura(${idx})" class="text-[10px] bg-green-500/20 text-green-400 px-2 py-1 rounded-md mt-1">PAGAR MÊS</button>
                 </div>
+            </div>
+            
+            <div class="space-y-2 mt-4">
+                <h4 class="text-xs font-bold text-gray-500 uppercase px-1">Lançamentos no Mês</h4>
+                ${transCartaoMes.map(t => `
+                    <div class="card-premium rounded-xl p-3 flex justify-between items-center text-sm">
+                        <div>
+                            <p>${t.descricao}</p>
+                            <p class="text-[10px] text-gray-500">${new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                        </div>
+                        <p class="font-bold text-red-400">${fmt(t.valor)}</p>
+                    </div>
+                `).join('') || '<p class="text-gray-500 text-center text-xs py-4">Sem lançamentos este mês</p>'}
             </div>
           </div>
           
           <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
           
           <!-- Botão Flutuante (FAB) -->
-          <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold z-30 active:scale-90 transition-transform">
-            +
+          <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold z-30 active:scale-90 transition-transform leading-none">
+            <span class="mb-1">+</span>
           </button>
         </div>
       `;
@@ -317,19 +338,29 @@
     window.pagarFatura = function(idx) {
         const p = perfil();
         const cartao = p.cartoes[idx];
-        if (cartao.utilizado <= 0) return alert('Não há valor para pagar');
+        
+        const transCartaoMes = p.transacoes.filter(t => t.cartaoId === cartao.id && new Date(t.data).getMonth() === mesRefPessoal && new Date(t.data).getFullYear() === anoRefPessoal);
+        const totalFaturaMes = transCartaoMes.reduce((s, t) => s + t.valor, 0);
+
+        if (totalFaturaMes <= 0) return alert('Não há valor para pagar este mês');
         if (p.contas.length === 0) return alert('Crie uma conta primeiro');
         
         const contaId = p.contas[0].id;
         p.transacoes.push({
             id: Date.now(),
             tipo: 'despesa',
-            descricao: `Pagamento Fatura: ${cartao.nome}`,
-            valor: cartao.utilizado,
+            descricao: `Pagamento Fatura ${nomeMesAno(mesRefPessoal, anoRefPessoal)}: ${cartao.nome}`,
+            valor: totalFaturaMes,
             data: new Date().toISOString().split('T')[0],
             contaId: contaId
         });
-        cartao.utilizado = 0;
+        
+        // Reduz o total utilizado do cartão apenas pelo valor pago no mês
+        cartao.utilizado -= totalFaturaMes;
+        
+        // Remove as transações de despesa-cartao do mês pago para não duplicar cobrança
+        p.transacoes = p.transacoes.filter(t => !(t.cartaoId === cartao.id && new Date(t.data).getMonth() === mesRefPessoal && new Date(t.data).getFullYear() === anoRefPessoal && t.tipo === 'despesa-cartao'));
+
         salvarPessoal(); renderPessoal(); abrirTelaCartao(idx);
     };
 

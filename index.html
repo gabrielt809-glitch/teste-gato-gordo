@@ -13,6 +13,7 @@
   <link id="apple-touch-icon" rel="apple-touch-icon" sizes="180x180" href="assets/logo.png?v=2">
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="css/style.css">
@@ -43,7 +44,10 @@
         <img src="assets/cat_mascot.png" alt="Logo" class="w-12 h-12 object-contain drop-shadow-md">
         <h1 class="text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gato Gordo</h1>
       </div>
-      <button onclick="logout()" class="text-xs text-gray-400 hover:text-white">Sair</button>
+      <div class="flex items-center gap-3">
+        <button onclick="exportarCSV()" class="text-xs text-amber-400 border border-amber-500/30 px-2 py-1 rounded">CSV</button>
+        <button onclick="logout()" class="text-xs text-gray-400 hover:text-white">Sair</button>
+      </div>
     </header>
 
     <!-- Área de conteúdo (alterna entre abas e telas de detalhe) -->
@@ -52,6 +56,13 @@
       <div id="app-abas">
         <!-- Aba Pessoal -->
         <div id="tab-pessoal" class="tab-content slide-in space-y-6">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 glass rounded-2xl p-2 flex items-center px-4">
+                <span class="text-gray-500 mr-2">🔍</span>
+                <input id="busca-transacao" oninput="renderPessoal()" placeholder="Buscar transação..." class="bg-transparent border-none text-sm w-full focus:outline-none text-white">
+            </div>
+          </div>
+
           <!-- Navegação mensal -->
           <div class="flex items-center justify-between glass rounded-2xl p-3">
             <button onclick="mudarMes(-1)" class="text-amber-400 text-lg font-bold px-2">&lt;</button>
@@ -93,13 +104,28 @@
             <div id="lista-cartoes" class="space-y-3"></div>
           </section>
 
+          <section>
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-lg font-semibold">🎯 Metas (Caixinhas)</h2>
+              <button onclick="openModal('meta')" class="bg-amber-500/10 text-amber-400 px-4 py-2 rounded-lg text-sm font-medium">+ Nova</button>
+            </div>
+            <div id="lista-metas" class="space-y-3 mb-4"></div>
+          </section>
+
           <!-- Últimas Transações -->
           <section>
             <div class="flex justify-between items-center mb-4">
               <h2 class="text-lg font-semibold">📋 Últimas Transações</h2>
               <button onclick="openModal('transacao')" class="bg-amber-500/10 text-amber-400 px-4 py-2 rounded-lg text-sm font-medium">+ Nova</button>
             </div>
-            <div id="lista-transacoes" class="space-y-2"></div>
+            <div id="lista-transacoes" class="space-y-3"></div>
+          </section>
+          
+          <section class="mt-8">
+            <h2 class="text-lg font-semibold mb-4">📊 Análise de Gastos</h2>
+            <div class="card-premium rounded-2xl p-4">
+              <canvas id="chart-gastos" class="w-full"></canvas>
+            </div>
           </section>
         </div>
 

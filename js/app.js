@@ -6,6 +6,7 @@
     let anoRefPessoal = new Date().getFullYear();
     let mesRefCompart = new Date().getMonth();
     let anoRefCompart = new Date().getFullYear();
+    let myChart = null;
 
     const dadosCompart = JSON.parse(localStorage.getItem('gato_gordo_compart') || '{"pessoas":[], "contas":[]}');
 
@@ -106,12 +107,17 @@
         const p = perfil();
         if (!p) return;
         
+        if (!p.metas) p.metas = [];
+
         document.getElementById('mes-referencia-pessoal').textContent = nomeMesAno(mesRefPessoal, anoRefPessoal);
         document.getElementById('mes-atual-pessoal').textContent = nomeMesAno(mesRefPessoal, anoRefPessoal);
 
+        const termoBusca = document.getElementById('busca-transacao').value.toLowerCase();
+
         const transMes = p.transacoes.filter(t => {
-            const d = new Date(t.data);
-            return d.getMonth() === mesRefPessoal && d.getFullYear() === anoRefPessoal;
+            const d = new Date(t.data + 'T00:00:00');
+            const matchBusca = t.descricao.toLowerCase().includes(termoBusca);
+            return d.getMonth() === mesRefPessoal && d.getFullYear() === anoRefPessoal && matchBusca;
         });
 
         const receitas = transMes.filter(t => t.tipo === 'receita').reduce((s, t) => s + t.valor, 0);
@@ -125,7 +131,6 @@
         p.transacoes.forEach(t => {
             if (t.tipo === 'receita') saldoTotal += t.valor;
             if (t.tipo === 'despesa') saldoTotal -= t.valor;
-            // Transferência não muda o patrimônio total, apenas entre contas
         });
         document.getElementById('patrimonio-total').textContent = fmt(saldoTotal);
 
@@ -137,9 +142,7 @@
                     if (t.tipo === 'receita') saldoConta += t.valor;
                     if (t.tipo === 'despesa' || t.tipo === 'transferencia') saldoConta -= t.valor;
                 }
-                if (t.tipo === 'transferencia' && t.contaDestinoId === c.id) {
-                    saldoConta += t.valor;
-                }
+                if (t.tipo === 'transferencia' && t.contaDestinoId === c.id) saldoConta += t.valor;
             });
             return `
                 <div class="card-premium rounded-2xl p-4 flex justify-between items-center" onclick="abrirTelaConta(${i})">
@@ -164,6 +167,21 @@
             </div>
         `).join('') || '<p class="text-gray-500 text-center py-4">Nenhum cartão cadastrado</p>';
 
+        const listaMetas = document.getElementById('lista-metas');
+        listaMetas.innerHTML = p.metas.map((m, i) => `
+            <div class="card-premium rounded-2xl p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <p class="font-medium">${m.nome}</p>
+                    <p class="text-xs text-amber-400">${fmt(m.atual)} / ${fmt(m.objetivo)}</p>
+                </div>
+                <div class="progress-bar mb-2"><div class="progress-fill bg-amber-500" style="width:${Math.min((m.atual/m.objetivo)*100, 100)}%"></div></div>
+                <div class="flex gap-2">
+                    <button onclick="guardarMeta(${i})" class="flex-1 bg-amber-500/10 text-amber-400 py-1 rounded-lg text-[10px] font-bold">GUARDAR</button>
+                    <button onclick="excluirMeta(${i})" class="text-red-400/50 text-[10px]">✕</button>
+                </div>
+            </div>
+        `).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma meta</p>';
+
         const listaTrans = document.getElementById('lista-transacoes');
         listaTrans.innerHTML = transMes.slice().reverse().map((t, i) => `
             <div class="card-premium rounded-xl p-3 flex justify-between items-center">
@@ -173,12 +191,75 @@
                     </div>
                     <div>
                         <p class="text-sm font-medium">${t.descricao}</p>
-                        <p class="text-[10px] text-gray-500">${new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                        <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                     </div>
                 </div>
                 <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}</p>
             </div>
         `).join('') || '<p class="text-gray-500 text-center py-4">Sem transações este mês</p>';
+
+        updateChart(transMes);
+    };
+
+    function updateChart(trans) {
+        const ctx = document.getElementById('chart-gastos');
+        if (!ctx) return;
+        
+        const categorias = {};
+        trans.filter(t => t.tipo === 'despesa' || t.tipo === 'despesa-cartao').forEach(t => {
+            const cat = t.descricao.split(':')[0].trim();
+            categorias[cat] = (categorias[cat] || 0) + t.valor;
+        });
+
+        const labels = Object.keys(categorias);
+        const values = Object.values(categorias);
+
+        if (myChart) myChart.destroy();
+        if (labels.length === 0) return;
+
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                plugins: { legend: { display: true, position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } } },
+                cutout: '70%'
+            }
+        });
+    }
+
+    window.guardarMeta = function(idx) {
+        const valor = parseFloat(prompt('Quanto deseja guardar?'));
+        if (!valor || isNaN(valor)) return;
+        const p = perfil();
+        p.metas[idx].atual += valor;
+        salvarPessoal(); renderPessoal();
+    };
+
+    window.excluirMeta = function(idx) {
+        if (confirm('Excluir meta?')) {
+            perfil().metas.splice(idx, 1);
+            salvarPessoal(); renderPessoal();
+        }
+    };
+
+    window.exportarCSV = function() {
+        const p = perfil();
+        let csv = 'Data;Descricao;Tipo;Valor\n';
+        p.transacoes.forEach(t => {
+            csv += `${t.data};${t.descricao};${t.tipo};${t.valor}\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `extrato_${perfilLogado}.csv`;
+        link.click();
     };
 
     window.mudarMes = function(delta) {
@@ -394,6 +475,7 @@
       else if (tipo === 'pessoa') formPessoa(content, editIndex);
       else if (tipo === 'conta-compartilhada') formContaCompart(content, editIndex);
       else if (tipo === 'transacao') formTransacao(content, editIndex, contaPreSelecionada, cartaoPreSelecionado);
+      else if (tipo === 'meta') formMeta(content, editIndex);
     };
     window.closeModal = function() { document.getElementById('modal').classList.add('hidden'); };
 
@@ -779,6 +861,31 @@
 
     window.excluirPessoa = function(i) { dadosCompart.pessoas.splice(i, 1); salvarCompart(); renderCompart(); };
     window.excluirContaCompart = function(i) { dadosCompart.contas.splice(i, 1); salvarCompart(); renderCompart(); };
+
+    function formMeta(content, editIndex) {
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-4">Nova Meta (Caixinha)</h3>
+            <div class="space-y-3">
+                <label class="text-xs text-gray-400">Nome da Meta</label>
+                <input id="f-meta-nome" placeholder="Ex: Viagem, Carro" class="w-full p-3 rounded-xl">
+                <label class="text-xs text-gray-400">Valor Objetivo</label>
+                <input id="f-meta-obj" type="number" step="0.01" placeholder="0,00" class="w-full p-3 rounded-xl">
+                <label class="text-xs text-gray-400">Valor Atual</label>
+                <input id="f-meta-atual" type="number" step="0.01" value="0" class="w-full p-3 rounded-xl">
+                <button onclick="salvarMeta()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2">Salvar Meta</button>
+            </div>
+        `;
+    }
+    window.salvarMeta = function() {
+        const nome = document.getElementById('f-meta-nome').value;
+        const objetivo = parseFloat(document.getElementById('f-meta-obj').value) || 0;
+        const atual = parseFloat(document.getElementById('f-meta-atual').value) || 0;
+        if (!nome || objetivo <= 0) return;
+        const p = perfil();
+        if (!p.metas) p.metas = [];
+        p.metas.push({ id: Date.now(), nome, objetivo, atual });
+        salvarPessoal(); renderPessoal(); closeModal();
+    };
 
     // Início
     renderLogin();

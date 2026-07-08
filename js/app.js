@@ -591,13 +591,14 @@
 
         if (tipo === 'cartao') {
             const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);
-            const cartao = p.cartoes.find(c => c.id === cartaoId);
-            const numParcelas = recorrencia === 'parcelado' ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 1;
+            const cartaoIdx = p.cartoes.findIndex(c => c.id === cartaoId);
+            const cartao = p.cartoes[cartaoIdx];
+            const isParcelado = recorrencia === 'parcelado';
+            const numParcelas = isParcelado ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 1;
             const valorParcela = valorTotal / numParcelas;
             
             cartao.utilizado += valorTotal;
             
-            // Registra as parcelas no histórico de transações como despesas de cartão futuras
             const dataBase = new Date(dataStr + 'T00:00:00');
             for (let i = 0; i < numParcelas; i++) {
                 const novaData = new Date(dataBase);
@@ -605,7 +606,7 @@
                 p.transacoes.push({
                     id: Date.now() + i,
                     tipo: 'despesa-cartao',
-                    descricao: `${descricao} ${numParcelas > 1 ? `(${i+1}/${numParcelas})` : ''}`,
+                    descricao: isParcelado ? `${descricao} (${i+1}/${numParcelas})` : descricao,
                     valor: valorParcela,
                     data: novaData.toISOString().split('T')[0],
                     cartaoId: cartaoId
@@ -615,21 +616,22 @@
             const contaId = parseInt(document.getElementById('f-trans-conta').value);
             const contaDestinoId = tipo === 'transferencia' ? parseInt(document.getElementById('f-trans-conta-dest').value) : null;
             
-            if (recorrencia === 'parcelado' || recorrencia !== 'nenhuma') {
-                const numCiclos = recorrencia === 'parcelado' ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 12;
-                const valorCiclo = recorrencia === 'parcelado' ? (valorTotal / numCiclos) : valorTotal;
+            if (recorrencia !== 'nenhuma') {
+                const isParcelado = recorrencia === 'parcelado';
+                const numCiclos = isParcelado ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 24; // 24 meses para recorrente "infinito"
+                const valorCiclo = isParcelado ? (valorTotal / numCiclos) : valorTotal;
                 const dataBase = new Date(dataStr + 'T00:00:00');
                 
                 for (let i = 0; i < numCiclos; i++) {
                     const novaData = new Date(dataBase);
                     if (recorrencia === 'semanal') novaData.setDate(dataBase.getDate() + (i * 7));
                     else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
-                    else novaData.setMonth(dataBase.getMonth() + i); // mensal ou parcelado
+                    else novaData.setMonth(dataBase.getMonth() + i);
                     
                     p.transacoes.push({
                         id: Date.now() + i,
                         tipo,
-                        descricao: `${descricao} ${numCiclos > 1 ? `(${i+1}/${numCiclos})` : ''}`,
+                        descricao: isParcelado ? `${descricao} (${i+1}/${numCiclos})` : descricao,
                         valor: valorCiclo,
                         data: novaData.toISOString().split('T')[0],
                         contaId,

@@ -514,17 +514,23 @@
                             <option value="despesa" ${t.tipo==='despesa'?'selected':''}>Despesa</option>
                             <option value="receita" ${t.tipo==='receita'?'selected':''}>Receita</option>
                             <option value="transferencia" ${t.tipo==='transferencia'?'selected':''}>Transferência</option>
+                            <option value="cartao">Cartão de Crédito</option>
                         </select>
                     </div>
                     <div>
-                        <label class="text-xs text-gray-400 ml-1">Recorrência</label>
-                        <select id="f-trans-recorrencia" class="w-full p-3 rounded-xl">
+                        <label class="text-xs text-gray-400 ml-1">Recorrência / Parcelas</label>
+                        <select id="f-trans-recorrencia" class="w-full p-3 rounded-xl" onchange="toggleParcelas()">
                             <option value="nenhuma" ${t.recorrencia==='nenhuma'?'selected':''}>Nenhuma</option>
                             <option value="semanal" ${t.recorrencia==='semanal'?'selected':''}>Semanal</option>
                             <option value="quinzenal" ${t.recorrencia==='quinzenal'?'selected':''}>Quinzenal</option>
                             <option value="mensal" ${t.recorrencia==='mensal'?'selected':''}>Mensal</option>
+                            <option value="parcelado">Parcelado</option>
                         </select>
                     </div>
+                </div>
+                <div id="f-trans-parcelas-group" class="hidden">
+                    <label class="text-xs text-gray-400 ml-1">Número de Parcelas</label>
+                    <input id="f-trans-parcelas-num" type="number" min="2" max="48" value="2" class="w-full p-3 rounded-xl">
                 </div>
                 <div>
                     <label class="text-xs text-gray-400 ml-1">Descrição</label>
@@ -532,7 +538,7 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="text-xs text-gray-400 ml-1">Valor</label>
+                        <label class="text-xs text-gray-400 ml-1">Valor Total</label>
                         <input id="f-trans-valor" type="number" step="0.01" value="${t.valor}" placeholder="0,00" class="w-full p-3 rounded-xl">
                     </div>
                     <div>
@@ -540,10 +546,16 @@
                         <input id="f-trans-data" type="date" value="${t.data}" class="w-full p-3 rounded-xl">
                     </div>
                 </div>
-                <div>
-                    <label class="text-xs text-gray-400 ml-1">Conta</label>
+                <div id="f-trans-conta-group">
+                    <label class="text-xs text-gray-400 ml-1">Conta de Origem</label>
                     <select id="f-trans-conta" class="w-full p-3 rounded-xl">
                         ${p.contas.map(c => `<option value="${c.id}" ${c.id==t.contaId?'selected':''}>${c.nome}</option>`).join('')}
+                    </select>
+                </div>
+                <div id="f-trans-cartao-group" class="hidden">
+                    <label class="text-xs text-gray-400 ml-1">Selecionar Cartão</label>
+                    <select id="f-trans-cartao" class="w-full p-3 rounded-xl">
+                        ${p.cartoes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
                     </select>
                 </div>
                 <div id="f-trans-destino-group" class="hidden">
@@ -557,49 +569,79 @@
         `;
         window.toggleTransDestino = () => {
             const tipo = document.getElementById('f-trans-tipo').value;
-            const destGroup = document.getElementById('f-trans-destino-group');
-            if (destGroup) destGroup.classList.toggle('hidden', tipo !== 'transferencia');
+            document.getElementById('f-trans-destino-group').classList.toggle('hidden', tipo !== 'transferencia');
+            document.getElementById('f-trans-cartao-group').classList.toggle('hidden', tipo !== 'cartao');
+            document.getElementById('f-trans-conta-group').classList.toggle('hidden', tipo === 'cartao');
         };
-        setTimeout(toggleTransDestino, 0);
+        window.toggleParcelas = () => {
+            const rec = document.getElementById('f-trans-recorrencia').value;
+            document.getElementById('f-trans-parcelas-group').classList.toggle('hidden', rec !== 'parcelado');
+        };
+        setTimeout(() => { toggleTransDestino(); toggleParcelas(); }, 0);
     }
     window.salvarTransacao = function() {
         const p = perfil();
         const tipo = document.getElementById('f-trans-tipo').value;
         const recorrencia = document.getElementById('f-trans-recorrencia').value;
         const descricao = document.getElementById('f-trans-desc').value;
-        const valor = parseFloat(document.getElementById('f-trans-valor').value) || 0;
+        const valorTotal = parseFloat(document.getElementById('f-trans-valor').value) || 0;
         const dataStr = document.getElementById('f-trans-data').value;
-        const contaId = parseInt(document.getElementById('f-trans-conta').value);
-        const contaDestinoId = tipo === 'transferencia' ? parseInt(document.getElementById('f-trans-conta-dest').value) : null;
         
-        if (!descricao || valor <= 0) return alert('Preencha os campos corretamente');
-        
-        // Se houver recorrência, gera múltiplas transações (ex: para os próximos 12 meses)
-        if (recorrencia !== 'nenhuma') {
+        if (!descricao || valorTotal <= 0) return alert('Preencha os campos corretamente');
+
+        if (tipo === 'cartao') {
+            const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);
+            const cartao = p.cartoes.find(c => c.id === cartaoId);
+            const numParcelas = recorrencia === 'parcelado' ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 1;
+            const valorParcela = valorTotal / numParcelas;
+            
+            cartao.utilizado += valorTotal;
+            
+            // Registra as parcelas no histórico de transações como despesas de cartão futuras
             const dataBase = new Date(dataStr + 'T00:00:00');
-            for (let i = 0; i < 12; i++) {
+            for (let i = 0; i < numParcelas; i++) {
                 const novaData = new Date(dataBase);
-                if (recorrencia === 'semanal') novaData.setDate(dataBase.getDate() + (i * 7));
-                else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
-                else if (recorrencia === 'mensal') novaData.setMonth(dataBase.getMonth() + i);
-                
-                p.transacoes.push({ 
-                    id: Date.now() + i, 
-                    tipo, 
-                    recorrencia, 
-                    descricao: `${descricao} (${i+1}/12)`, 
-                    valor, 
-                    data: novaData.toISOString().split('T')[0], 
-                    contaId, 
-                    contaDestinoId 
+                novaData.setMonth(dataBase.getMonth() + i);
+                p.transacoes.push({
+                    id: Date.now() + i,
+                    tipo: 'despesa-cartao',
+                    descricao: `${descricao} ${numParcelas > 1 ? `(${i+1}/${numParcelas})` : ''}`,
+                    valor: valorParcela,
+                    data: novaData.toISOString().split('T')[0],
+                    cartaoId: cartaoId
                 });
             }
         } else {
-            p.transacoes.push({ id: Date.now(), tipo, recorrencia, descricao, valor, data: dataStr, contaId, contaDestinoId });
+            const contaId = parseInt(document.getElementById('f-trans-conta').value);
+            const contaDestinoId = tipo === 'transferencia' ? parseInt(document.getElementById('f-trans-conta-dest').value) : null;
+            
+            if (recorrencia === 'parcelado' || recorrencia !== 'nenhuma') {
+                const numCiclos = recorrencia === 'parcelado' ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 12;
+                const valorCiclo = recorrencia === 'parcelado' ? (valorTotal / numCiclos) : valorTotal;
+                const dataBase = new Date(dataStr + 'T00:00:00');
+                
+                for (let i = 0; i < numCiclos; i++) {
+                    const novaData = new Date(dataBase);
+                    if (recorrencia === 'semanal') novaData.setDate(dataBase.getDate() + (i * 7));
+                    else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
+                    else novaData.setMonth(dataBase.getMonth() + i); // mensal ou parcelado
+                    
+                    p.transacoes.push({
+                        id: Date.now() + i,
+                        tipo,
+                        descricao: `${descricao} ${numCiclos > 1 ? `(${i+1}/${numCiclos})` : ''}`,
+                        valor: valorCiclo,
+                        data: novaData.toISOString().split('T')[0],
+                        contaId,
+                        contaDestinoId
+                    });
+                }
+            } else {
+                p.transacoes.push({ id: Date.now(), tipo, descricao, valor: valorTotal, data: dataStr, contaId, contaDestinoId });
+            }
         }
         
         salvarPessoal(); renderPessoal(); closeModal();
-        if (telaAtual === 'extrato-conta') abrirTelaConta(p.contas.findIndex(c => c.id === contaId));
     };
 
     // --- COMPARTILHADO ---
@@ -607,28 +649,10 @@
         document.getElementById('mes-referencia-compart').textContent = nomeMesAno(mesRefCompart, anoRefCompart);
         document.getElementById('mes-atual-compart').textContent = nomeMesAno(mesRefCompart, anoRefCompart);
         
-        const listaPessoas = document.getElementById('lista-pessoas');
-        listaPessoas.innerHTML = dadosCompart.pessoas.map((p, i) => `
-            <div class="card-premium rounded-xl p-3 flex justify-between items-center">
-                <div>
-                    <p class="font-medium">${p.nome}</p>
-                    <p class="text-[10px] text-gray-500">Salário: ${fmt(p.salario || 0)}</p>
-                </div>
-                <button onclick="excluirPessoa(${i})" class="text-red-400 text-xs">✕</button>
-            </div>
-        `).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma pessoa</p>';
-
-        const listaContasComp = document.getElementById('lista-contas-compartilhadas');
         const contasMes = dadosCompart.contas.filter(c => {
             const d = new Date(c.data);
             return d.getMonth() === mesRefCompart && d.getFullYear() === anoRefCompart;
         });
-        listaContasComp.innerHTML = contasMes.map((c, i) => `
-            <div class="card-premium rounded-xl p-3 flex justify-between items-center">
-                <div><p class="font-medium">${c.descricao}</p><p class="text-xs text-gray-500">${fmt(c.valor)}</p></div>
-                <button onclick="excluirContaCompart(${i})" class="text-red-400 text-xs">✕</button>
-            </div>
-        `).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma conta este mês</p>';
 
         const resumo = document.getElementById('resumo-mensal-compart');
         const totalDespesas = contasMes.reduce((s, c) => s + c.valor, 0);
@@ -647,15 +671,42 @@
                     </div>
                 `;
             });
-        } else if (dadosCompart.pessoas.length > 0) {
-            const valorIgual = totalDespesas / dadosCompart.pessoas.length;
-            dadosCompart.pessoas.forEach(p => {
-                rateioHtml += `<div class="flex justify-between text-xs py-1"><span class="text-gray-400">${p.nome}:</span><span class="font-medium text-white">${fmt(valorIgual)}</span></div>`;
-            });
         }
-        
         resumo.innerHTML = rateioHtml;
+
+        const listaPessoas = document.getElementById('lista-pessoas');
+        listaPessoas.innerHTML = dadosCompart.pessoas.map((p, i) => `
+            <div class="card-premium rounded-xl p-3 flex justify-between items-center">
+                <div>
+                    <p class="font-medium">${p.nome}</p>
+                    <p class="text-[10px] text-gray-500">Salário: ${fmt(p.salario || 0)}</p>
+                </div>
+                <button onclick="excluirPessoa(${i})" class="text-red-400 text-xs">✕</button>
+            </div>
+        `).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma pessoa</p>';
+
+        const listaContasComp = document.getElementById('lista-contas-compartilhadas');
+        listaContasComp.innerHTML = contasMes.map((c, i) => {
+            const originalIdx = dadosCompart.contas.findIndex(dc => dc.id === c.id);
+            return `
+                <div class="card-premium rounded-xl p-3 flex justify-between items-center ${c.pago ? 'opacity-50' : ''}">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" ${c.pago ? 'checked' : ''} onchange="togglePagoContaCompart(${originalIdx})" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-amber-500">
+                        <div>
+                            <p class="font-medium ${c.pago ? 'line-through text-gray-500' : ''}">${c.descricao}</p>
+                            <p class="text-xs text-gray-500">${fmt(c.valor)}</p>
+                        </div>
+                    </div>
+                    <button onclick="excluirContaCompart(${originalIdx})" class="text-red-400 text-xs">✕</button>
+                </div>
+            `;
+        }).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma conta este mês</p>';
     }
+    
+    window.togglePagoContaCompart = function(idx) {
+        dadosCompart.contas[idx].pago = !dadosCompart.contas[idx].pago;
+        salvarCompart(); renderCompart();
+    };
 
     function formPessoa(content, editIndex) {
         content.innerHTML = `
@@ -685,6 +736,22 @@
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-4">Nova Conta Compartilhada</h3>
             <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400 ml-1">Tipo</label>
+                        <select id="f-comp-tipo" class="w-full p-3 rounded-xl">
+                            <option value="despesa">Despesa</option>
+                            <option value="receita">Receita</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 ml-1">Recorrência</label>
+                        <select id="f-comp-recorrencia" class="w-full p-3 rounded-xl">
+                            <option value="nenhuma">Nenhuma</option>
+                            <option value="mensal">Mensal</option>
+                        </select>
+                    </div>
+                </div>
                 <div>
                     <label class="text-xs text-gray-400 ml-1">Descrição</label>
                     <input id="f-comp-desc" placeholder="Ex: Mercado, Aluguel" class="w-full p-3 rounded-xl">
@@ -704,11 +771,33 @@
         `;
     }
     window.salvarContaComp = function() {
+        const tipo = document.getElementById('f-comp-tipo').value;
+        const recorrencia = document.getElementById('f-comp-recorrencia').value;
         const descricao = document.getElementById('f-comp-desc').value;
-        const valor = parseFloat(document.getElementById('f-comp-valor').value) || 0;
-        const data = document.getElementById('f-comp-data').value;
-        if (!descricao || valor <= 0) return;
-        dadosCompart.contas.push({ descricao, valor, data });
+        const valorTotal = parseFloat(document.getElementById('f-comp-valor').value) || 0;
+        const dataStr = document.getElementById('f-comp-data').value;
+        
+        if (!descricao || valorTotal <= 0) return;
+        
+        const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
+        
+        if (recorrencia === 'mensal') {
+            const dataBase = new Date(dataStr + 'T00:00:00');
+            for (let i = 0; i < 12; i++) {
+                const novaData = new Date(dataBase);
+                novaData.setMonth(dataBase.getMonth() + i);
+                dadosCompart.contas.push({
+                    id: Date.now() + i,
+                    descricao: `${descricao} (${i+1}/12)`,
+                    valor: valorFinal,
+                    data: novaData.toISOString().split('T')[0],
+                    pago: false
+                });
+            }
+        } else {
+            dadosCompart.contas.push({ id: Date.now(), descricao, valor: valorFinal, data: dataStr, pago: false });
+        }
+        
         salvarCompart(); renderCompart(); closeModal();
     };
 

@@ -206,7 +206,7 @@
       const pct = cartao.limite > 0 ? (cartao.utilizado / cartao.limite * 100) : 0;
       const cor = pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-yellow-500' : 'bg-emerald-500';
       const html = `
-        <div class="space-y-4">
+        <div class="space-y-4 pb-20">
           <div class="glass rounded-2xl p-5">
             <h2 class="text-xl font-bold">${cartao.nome}</h2>
             <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] text-gray-400 uppercase tracking-wider">
@@ -221,10 +221,7 @@
           </div>
           
           <div class="space-y-2">
-            <div class="flex justify-between items-center px-1">
-                <h3 class="text-lg font-semibold">Faturas</h3>
-                <button onclick="openModal('transacao', null, null, ${cartao.id})" class="text-xs bg-amber-500 text-black px-3 py-1 rounded-full font-bold">+ Despesa</button>
-            </div>
+            <h3 class="text-lg font-semibold px-1">Faturas</h3>
             <div class="card-premium rounded-2xl p-4 flex justify-between items-center">
                 <div>
                     <p class="font-medium">Fatura Atual</p>
@@ -238,6 +235,11 @@
           </div>
           
           <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
+          
+          <!-- Botão Flutuante (FAB) -->
+          <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold z-30 active:scale-90 transition-transform">
+            +
+          </button>
         </div>
       `;
       document.getElementById('detalhe-conteudo').innerHTML = html;
@@ -246,6 +248,61 @@
       document.getElementById('barra-inferior').classList.add('hidden');
       document.getElementById('btn-voltar').classList.remove('hidden');
       telaAtual = 'detalhe-cartao';
+    };
+
+    window.abrirTelaConta = function(idx) {
+        const conta = perfil()?.contas[idx];
+        if (!conta) return;
+        
+        const transConta = perfil().transacoes.filter(t => t.contaId === conta.id || t.contaDestinoId === conta.id);
+        let saldoAtual = conta.saldoInicial;
+        perfil().transacoes.forEach(t => {
+            if (t.contaId === conta.id) {
+                if (t.tipo === 'receita') saldoAtual += t.valor;
+                if (t.tipo === 'despesa' || t.tipo === 'transferencia') saldoAtual -= t.valor;
+            }
+            if (t.tipo === 'transferencia' && t.contaDestinoId === conta.id) saldoAtual += t.valor;
+        });
+
+        const html = `
+            <div class="space-y-4 pb-20">
+                <div class="glass rounded-2xl p-5 text-center">
+                    <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">${conta.tipo}</p>
+                    <h2 class="text-2xl font-bold mb-2">${conta.nome}</h2>
+                    <p class="text-3xl font-bold text-amber-400">${fmt(saldoAtual)}</p>
+                </div>
+
+                <div class="space-y-2">
+                    <h3 class="text-lg font-semibold px-1">Transações da Conta</h3>
+                    <div class="space-y-2">
+                        ${transConta.slice().reverse().map(t => `
+                            <div class="card-premium rounded-xl p-3 flex justify-between items-center">
+                                <div>
+                                    <p class="text-sm font-medium">${t.descricao}</p>
+                                    <p class="text-[10px] text-gray-500">${new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                                </div>
+                                <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">
+                                    ${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}
+                                </p>
+                            </div>
+                        `).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma transação</p>'}
+                    </div>
+                </div>
+
+                <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
+
+                <!-- Botão Flutuante (FAB) -->
+                <button onclick="openModal('transacao', null, ${conta.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold z-30 active:scale-90 transition-transform">
+                    +
+                </button>
+            </div>
+        `;
+        document.getElementById('detalhe-conteudo').innerHTML = html;
+        document.getElementById('app-abas').classList.add('hidden');
+        document.getElementById('tela-detalhe').classList.remove('hidden');
+        document.getElementById('barra-inferior').classList.add('hidden');
+        document.getElementById('btn-voltar').classList.remove('hidden');
+        telaAtual = 'detalhe-conta';
     };
 
     window.voltarParaApp = function() {
@@ -552,13 +609,25 @@
         const listaContasComp = document.getElementById('lista-contas-compartilhadas');
         listaContasComp.innerHTML = contasMes.map((c, i) => {
             const originalIdx = dadosCompart.contas.findIndex(dc => dc.id === c.id);
+            const dataVenc = new Date(c.data + 'T00:00:00');
+            const hoje = new Date();
+            hoje.setHours(0,0,0,0);
+            const diffDias = Math.ceil((dataVenc - hoje) / (1000 * 60 * 60 * 24));
+            const isUrgente = diffDias <= 3 && diffDias >= 0 && !c.pago;
+
             return `
-                <div class="card-premium rounded-xl p-3 flex justify-between items-center ${c.pago ? 'opacity-50' : ''}">
+                <div class="card-premium rounded-xl p-3 flex justify-between items-center ${c.pago ? 'opacity-50' : ''} ${isUrgente ? 'border-l-4 border-red-500' : ''}">
                     <div class="flex items-center gap-3">
                         <input type="checkbox" ${c.pago ? 'checked' : ''} onchange="togglePagoContaCompart(${originalIdx})" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-amber-500">
                         <div>
                             <p class="font-medium ${c.pago ? 'line-through text-gray-500' : ''}">${c.descricao}</p>
-                            <p class="text-xs text-gray-500">${fmt(c.valor)}</p>
+                            <div class="flex items-center gap-2">
+                                <p class="text-xs text-gray-500">${fmt(c.valor)}</p>
+                                <span class="text-[9px] ${isUrgente ? 'text-red-400 font-bold' : 'text-gray-600'}">
+                                    📅 ${dataVenc.toLocaleDateString('pt-BR')}
+                                    ${isUrgente ? ' (VENCE LOGO!)' : ''}
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <button onclick="excluirContaCompart(${originalIdx})" class="text-red-400 text-xs">✕</button>

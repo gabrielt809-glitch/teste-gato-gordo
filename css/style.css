@@ -1,0 +1,71 @@
+* { font-family: 'Plus Jakarta Sans', sans-serif; }
+body {
+  background: radial-gradient(circle at 30% 30%, #1e293b 0%, #0f172a 100%);
+  min-height: 100vh;
+  background-attachment: fixed;
+}
+.glass {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.card-premium {
+  background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: all 0.25s ease;
+}
+.card-premium:active { transform: scale(0.98); }
+.tab-btn { transition: all 0.2s; }
+.tab-active {
+  color: #F97316;
+  border-bottom: 2px solid #F97316;
+  font-weight: 600;
+}
+.progress-bar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+input, select, textarea {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  color: #fff !important;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #F97316 !important;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(249,115,22,0.25);
+}
+button:active { transform: scale(0.96); }
+.slide-in { animation: slideUp 0.35s ease; }
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.badge-recorrente {
+  background: rgba(251,191,36,0.2);
+  color: #FBBF24;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.vencimento-proximo { border-left: 3px solid #EF4444; }
+.modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+input[type="date"] {
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box;
+  padding: 0.5rem !important;
+  font-size: 0.8rem !important;
+  color-scheme: dark;
+}
+.login-overlay {
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
+}

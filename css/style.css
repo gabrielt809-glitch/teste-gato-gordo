@@ -86,3 +86,16 @@ input[type="date"] {
   background: rgba(0,0,0,0.8);
   backdrop-filter: blur(10px);
 }
+
+/* Ajustes de Safe Area para Mobile */
+header {
+  padding-top: env(safe-area-inset-top, 20px) !important;
+}
+#main-content {
+  margin-top: calc(70px + env(safe-area-inset-top, 0px)) !important;
+}
+#barra-inferior {
+  padding-bottom: env(safe-area-inset-bottom, 15px) !important;
+  height: auto !important;
+  min-height: 65px;
+}

@@ -642,6 +642,13 @@
         }
         
         salvarPessoal(); renderPessoal(); closeModal();
+        if (telaAtual === 'detalhe-cartao') {
+            const cartaoId = parseInt(document.getElementById('f-trans-cartao')?.value);
+            if (cartaoId) {
+                const idx = p.cartoes.findIndex(c => c.id === cartaoId);
+                if (idx !== -1) abrirTelaCartao(idx);
+            }
+        }
     };
 
     // --- COMPARTILHADO ---

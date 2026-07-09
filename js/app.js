@@ -26,30 +26,49 @@
         const container = document.getElementById('login-form');
         if (perfis.length === 0) {
             container.innerHTML = `
-                <div class="space-y-3">
-                    <input id="new-perfil-nome" placeholder="Seu Nome" class="w-full p-3 rounded-xl">
-                    <input id="new-perfil-pass" type="password" placeholder="Criar Senha" class="w-full p-3 rounded-xl">
-                    <button onclick="criarPerfil()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl shadow-lg">Começar</button>
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest ml-2">Nome do Perfil</label>
+                        <input id="new-perfil-nome" placeholder="Ex: Gabriel" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest ml-2">Senha de Acesso</label>
+                        <input id="new-perfil-pass" type="password" placeholder="••••••" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none">
+                    </div>
+                    <button onclick="criarPerfil()" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">Começar Agora</button>
                 </div>
             `;
         } else {
             container.innerHTML = `
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-3" id="lista-perfis-login">
-                        ${perfis.map(p => `
-                            <button onclick="selecionarPerfil('${p.nome}')" class="card-premium p-4 rounded-2xl flex flex-col items-center gap-2">
-                                <div class="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-xl">${p.nome[0]}</div>
-                                <span class="text-xs font-medium">${p.nome}</span>
-                            </button>
-                        `).join('')}
+                <div id="lista-perfis-login" class="grid grid-cols-2 gap-4">
+                    ${perfis.map(p => `
+                        <div onclick="selecionarPerfil('${p.nome}')" class="group relative bg-white/5 border border-white/10 rounded-3xl p-6 transition-all hover:bg-white/10 hover:border-amber-500/50 active:scale-95 cursor-pointer">
+                            <div class="w-16 h-16 bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4 font-bold text-2xl shadow-inner">
+                                ${p.nome[0].toUpperCase()}
+                            </div>
+                            <p class="text-sm font-bold tracking-tight text-center">${p.nome}</p>
+                        </div>
+                    `).join('')}
+                    <div onclick="novoPerfil()" class="border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center text-gray-500 hover:text-white hover:border-white/20 active:scale-95 transition-all cursor-pointer">
+                        <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-2">
+                            <span class="text-xl">+</span>
+                        </div>
+                        <p class="text-[10px] font-bold uppercase tracking-widest">Novo Perfil</p>
                     </div>
-                    <div id="login-pass-area" class="hidden slide-in space-y-3">
-                        <p class="text-xs text-gray-400">Senha para <span id="login-nome-selected" class="text-amber-400"></span></p>
-                        <input id="login-pass" type="password" placeholder="Sua Senha" class="w-full p-3 rounded-xl">
-                        <button onclick="fazerLogin()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl">Entrar</button>
-                        <button onclick="cancelarLogin()" class="text-xs text-gray-500 w-full">Voltar</button>
+                </div>
+                <div id="login-pass-area" class="hidden slide-in space-y-6">
+                    <div class="text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-widest">Acessando como</p>
+                        <h3 id="login-nome-selected" class="text-2xl font-black text-amber-500 mt-1"></h3>
                     </div>
-                    <button onclick="novoPerfil()" class="text-xs text-amber-400 mt-2">+ Novo Perfil</button>
+                    <div class="space-y-4">
+                        <input id="login-pass" type="password" placeholder="Digite sua senha" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none text-center text-lg tracking-widest">
+                        <div class="grid grid-cols-5 gap-2">
+                            <button onclick="fazerLogin()" class="col-span-4 bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">Entrar</button>
+                            <button onclick="tentarBiometria()" class="bg-white/5 text-white rounded-2xl flex items-center justify-center active:scale-95 transition-all">🖐️</button>
+                        </div>
+                        <button onclick="cancelarLogin()" class="text-[10px] text-gray-600 uppercase tracking-widest w-full font-bold">Trocar Perfil</button>
+                    </div>
                 </div>
             `;
         }
@@ -146,6 +165,52 @@
         renderLogin();
     };
 
+    window.abrirMenu = function() {
+        const p = perfil();
+        const html = `
+            <div class="space-y-6">
+                <div class="text-center pb-6 border-b border-white/5">
+                    <div class="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-3 font-bold text-3xl">
+                        ${perfilLogado[0].toUpperCase()}
+                    </div>
+                    <h2 class="text-xl font-bold">${perfilLogado}</h2>
+                    <p class="text-xs text-gray-500 uppercase tracking-widest mt-1">Configurações do Perfil</p>
+                </div>
+                
+                <div class="grid grid-cols-1 gap-3">
+                    <button onclick="backupNuvem()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">☁️</span>
+                        <div class="text-left">
+                            <p class="font-bold text-sm">Backup em Nuvem</p>
+                            <p class="text-[10px] text-gray-500">Baixar cópia de segurança dos dados</p>
+                        </div>
+                    </button>
+                    <button onclick="exportarCSV()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">📊</span>
+                        <div class="text-left">
+                            <p class="font-bold text-sm">Exportar Extrato (CSV)</p>
+                            <p class="text-[10px] text-gray-500">Planilha detalhada de transações</p>
+                        </div>
+                    </button>
+                    <button onclick="logout()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4 text-red-400">
+                        <span class="text-xl">🚪</span>
+                        <div class="text-left">
+                            <p class="font-bold text-sm">Sair do Perfil</p>
+                            <p class="text-[10px] text-red-400/50">Encerrar sessão atual</p>
+                        </div>
+                    </button>
+                </div>
+                
+                <button onclick="voltarParaApp()" class="w-full glass py-4 rounded-2xl text-gray-500 text-sm font-bold uppercase tracking-widest">Fechar Menu</button>
+            </div>
+        `;
+        document.getElementById('app-abas').classList.add('hidden');
+        document.getElementById('tela-detalhe').classList.remove('hidden');
+        document.getElementById('detalhe-conteudo').innerHTML = html;
+        document.getElementById('btn-voltar').classList.remove('hidden');
+        document.getElementById('subtitulo-header').textContent = 'Opções';
+    };
+
     window.novoPerfil = function() {
         perfis = [];
         renderLogin();
@@ -161,12 +226,9 @@
         document.getElementById('mes-referencia-pessoal').textContent = nomeMesAno(mesRefPessoal, anoRefPessoal);
         document.getElementById('mes-atual-pessoal').textContent = nomeMesAno(mesRefPessoal, anoRefPessoal);
 
-        const termoBusca = document.getElementById('busca-transacao').value.toLowerCase();
-
         const transMes = p.transacoes.filter(t => {
             const d = new Date(t.data + 'T00:00:00');
-            const matchBusca = t.descricao.toLowerCase().includes(termoBusca);
-            return d.getMonth() === mesRefPessoal && d.getFullYear() === anoRefPessoal && matchBusca;
+            return d.getMonth() === mesRefPessoal && d.getFullYear() === anoRefPessoal;
         });
 
         const receitas = transMes.filter(t => t.tipo === 'receita').reduce((s, t) => s + t.valor, 0);
@@ -482,6 +544,7 @@
         document.getElementById('tela-detalhe').classList.add('hidden');
         document.getElementById('barra-inferior').classList.remove('hidden');
         document.getElementById('btn-voltar').classList.add('hidden');
+        document.getElementById('subtitulo-header').textContent = 'Finanças Pessoais';
         telaAtual = 'pessoal';
         renderPessoal();
     };

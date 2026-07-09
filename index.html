@@ -21,33 +21,43 @@
 <body class="text-white">
 
   <!-- Tela de Login -->
-  <div id="login-screen" class="fixed inset-0 z-50 login-overlay flex items-center justify-center p-4">
-    <div class="glass rounded-2xl p-6 w-full max-w-sm text-center slide-in">
-      <div class="flex justify-center mb-4">
-        <img src="assets/cat_mascot.png" alt="Gato Gordo" class="w-32 h-32 object-contain drop-shadow-xl">
+  <div id="login-screen" class="fixed inset-0 z-50 bg-[#000] flex items-center justify-center p-6">
+    <div class="w-full max-w-sm space-y-12">
+      <div class="text-center space-y-4">
+        <div class="flex justify-center">
+            <div class="w-24 h-24 bg-gradient-to-tr from-amber-500 to-orange-600 rounded-3xl flex items-center justify-center shadow-2xl rotate-3">
+                <img src="assets/cat_mascot.png" alt="Gato Gordo" class="w-20 h-20 object-contain -rotate-3">
+            </div>
+        </div>
+        <h2 class="text-3xl font-black tracking-tighter">Gato Gordo</h2>
+        <p class="text-gray-500 text-sm">Controle financeiro com simplicidade.</p>
       </div>
-      <h2 class="text-xl font-bold mb-4">Gato Gordo</h2>
       
-      <!-- Área dinâmica do login -->
-      <div id="login-form"></div>
+      <div id="login-form" class="space-y-6"></div>
       
-      <p class="text-xs text-gray-400 mt-4">Seus dados ficam apenas neste dispositivo.</p>
+      <div class="text-center">
+        <p class="text-[10px] text-gray-600 uppercase tracking-widest">Seguro • Local • Privado</p>
+      </div>
     </div>
   </div>
 
   <!-- App principal (oculto até login) -->
   <div id="app-container" class="hidden">
     <!-- Header -->
-    <header class="fixed top-0 left-0 right-0 z-20 glass px-5 py-4 flex items-center justify-between shadow-2xl">
-      <div class="flex items-center gap-3">
-        <button id="btn-voltar" class="hidden mr-2 text-amber-400 text-lg" onclick="voltarParaApp()">←</button>
-        <img src="assets/cat_mascot.png" alt="Logo" class="w-12 h-12 object-contain drop-shadow-md">
-        <h1 class="text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">Gato Gordo</h1>
+    <header class="fixed top-0 left-0 right-0 z-20 glass px-6 py-5 flex items-center justify-between border-b border-white/5">
+      <div class="flex items-center gap-4">
+        <button id="btn-voltar" class="hidden text-amber-400" onclick="voltarParaApp()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <div class="flex flex-col">
+            <h1 class="text-lg font-bold leading-none tracking-tight">Gato Gordo</h1>
+            <p id="subtitulo-header" class="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Finanças Pessoais</p>
+        </div>
       </div>
-      <div class="flex items-center gap-3">
-        <button onclick="backupNuvem()" class="text-xs text-amber-400 border border-amber-500/30 px-2 py-1 rounded">☁️ Backup</button>
-        <button onclick="exportarCSV()" class="text-xs text-amber-400 border border-amber-500/30 px-2 py-1 rounded">CSV</button>
-        <button onclick="logout()" class="text-xs text-gray-400 hover:text-white">Sair</button>
+      <div class="flex items-center gap-2">
+        <button onclick="abrirMenu()" class="w-10 h-10 flex items-center justify-center rounded-full bg-white/5">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
+        </button>
       </div>
     </header>
 
@@ -57,12 +67,7 @@
       <div id="app-abas">
         <!-- Aba Pessoal -->
         <div id="tab-pessoal" class="tab-content slide-in space-y-6">
-          <div class="flex items-center gap-2">
-            <div class="flex-1 glass rounded-2xl p-2 flex items-center px-4">
-                <span class="text-gray-500 mr-2">🔍</span>
-                <input id="busca-transacao" oninput="renderPessoal()" placeholder="Buscar transação..." class="bg-transparent border-none text-sm w-full focus:outline-none text-white">
-            </div>
-          </div>
+
 
           <!-- Navegação mensal -->
           <div class="flex items-center justify-between glass rounded-2xl p-3">

@@ -51,6 +51,29 @@ button:active { transform: scale(0.96); }
   from { transform: translateY(30px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Transições de abas */
+.tab-content {
+  transition: opacity 0.3s ease;
+}
+
+.toast-in {
+  animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes toastIn {
+  from { transform: translate(-50%, -100%); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
 .badge-recorrente {
   background: rgba(251,191,36,0.2);
   color: #FBBF24;

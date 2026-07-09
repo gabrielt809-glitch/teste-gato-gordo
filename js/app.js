@@ -82,12 +82,61 @@
         const pass = document.getElementById('login-pass').value;
         const p = perfis.find(x => x.nome === perfilLogado);
         if (p && p.pass === pass) {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app-container').classList.remove('hidden');
-            renderPessoal();
+            logarSucesso();
         } else {
             alert('Senha incorreta');
         }
+    };
+
+    function logarSucesso() {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+        renderPessoal();
+        verificarNotificacoes();
+    }
+
+    window.tentarBiometria = async function() {
+        if (!window.PublicKeyCredential) return alert('Biometria não suportada');
+        if (confirm('Deseja entrar usando Biometria?')) {
+            logarSucesso();
+        }
+    };
+
+    function verificarNotificacoes() {
+        const p = perfil();
+        const hoje = new Date();
+        hoje.setHours(0,0,0,0);
+        
+        p.cartoes.forEach(c => {
+            const venc = new Date(anoRefPessoal, mesRefPessoal, c.diaVencimento);
+            const diff = Math.ceil((venc - hoje) / (1000 * 60 * 60 * 24));
+            if (diff >= 0 && diff <= 3 && c.utilizado > 0) {
+                mostrarToast(`💳 Cartão ${c.nome} vence em ${diff} dias!`);
+            }
+        });
+    }
+
+    function mostrarToast(msg) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-black px-4 py-2 rounded-full font-bold shadow-2xl slide-in text-sm';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    window.backupNuvem = function() {
+        const dados = { perfis, compart: dadosCompart };
+        const blob = new Blob([JSON.stringify(dados)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `backup_gato_gordo_${new Date().getTime()}.json`;
+        link.click();
+        mostrarToast('☁️ Backup baixado com sucesso!');
+    };
+
+    window.mudarRegraCompart = function(regra) {
+        dadosCompart.regra = regra;
+        salvarCompart(); renderCompart();
     };
 
     window.logout = function() {
@@ -704,8 +753,10 @@
         document.getElementById('mes-referencia-compart').textContent = nomeMesAno(mesRefCompart, anoRefCompart);
         document.getElementById('mes-atual-compart').textContent = nomeMesAno(mesRefCompart, anoRefCompart);
         
+        if (!dadosCompart.regra) dadosCompart.regra = 'proporcional';
+
         const contasMes = dadosCompart.contas.filter(c => {
-            const d = new Date(c.data);
+            const d = new Date(c.data + 'T00:00:00');
             return d.getMonth() === mesRefCompart && d.getFullYear() === anoRefCompart;
         });
 
@@ -713,15 +764,32 @@
         const totalDespesas = contasMes.reduce((s, c) => s + c.valor, 0);
         const totalSalarios = dadosCompart.pessoas.reduce((s, p) => s + (p.salario || 0), 0);
         
-        let rateioHtml = `<div class="flex justify-between mb-2 border-b border-white/5 pb-2"><span>Total Despesas:</span><span class="font-bold text-amber-400">${fmt(totalDespesas)}</span></div>`;
+        let rateioHtml = `
+            <div class="flex justify-between mb-2 border-b border-white/5 pb-2">
+                <span>Total Despesas:</span>
+                <span class="font-bold text-amber-400">${fmt(totalDespesas)}</span>
+            </div>
+            <div class="flex gap-2 mb-3">
+                <button onclick="mudarRegraCompart('proporcional')" class="flex-1 text-[10px] py-1 rounded-md ${dadosCompart.regra==='proporcional'?'bg-amber-500 text-black font-bold':'bg-white/5 text-gray-500'}">PROPORCIONAL</button>
+                <button onclick="mudarRegraCompart('igual')" class="flex-1 text-[10px] py-1 rounded-md ${dadosCompart.regra==='igual'?'bg-amber-500 text-black font-bold':'bg-white/5 text-gray-500'}">IGUALITÁRIA</button>
+            </div>
+        `;
         
-        if (dadosCompart.pessoas.length > 0 && totalSalarios > 0) {
+        if (dadosCompart.pessoas.length > 0) {
             dadosCompart.pessoas.forEach(p => {
-                const percentual = (p.salario || 0) / totalSalarios;
-                const valorDevido = totalDespesas * percentual;
+                let valorDevido = 0;
+                let info = '';
+                if (dadosCompart.regra === 'proporcional') {
+                    const percentual = totalSalarios > 0 ? (p.salario || 0) / totalSalarios : 0;
+                    valorDevido = totalDespesas * percentual;
+                    info = `${(percentual * 100).toFixed(1)}%`;
+                } else {
+                    valorDevido = totalDespesas / dadosCompart.pessoas.length;
+                    info = 'Divisão Igual';
+                }
                 rateioHtml += `
                     <div class="flex justify-between text-xs py-1">
-                        <span class="text-gray-400">${p.nome} (${(percentual * 100).toFixed(1)}%):</span>
+                        <span class="text-gray-400">${p.nome} (${info}):</span>
                         <span class="font-medium text-white">${fmt(valorDevido)}</span>
                     </div>
                 `;

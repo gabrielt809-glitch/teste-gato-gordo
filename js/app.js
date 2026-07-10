@@ -1062,10 +1062,11 @@
         const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
         if (recorrencia === 'mensal') {
             const dataBase = new Date(dataStr + 'T00:00:00');
+            const serieId = Date.now();
             for (let i = 0; i < 24; i++) {
                 const novaData = new Date(dataBase);
                 novaData.setMonth(dataBase.getMonth() + i);
-                dadosCompart.contas.push({ id: Date.now() + i, descricao, valor: valorFinal, data: novaData.toISOString().split('T')[0], pago: false });
+                dadosCompart.contas.push({ id: Date.now() + i, serieId, descricao, valor: valorFinal, data: novaData.toISOString().split('T')[0], pago: false });
             }
         } else {
             dadosCompart.contas.push({ id: Date.now(), descricao, valor: valorFinal, data: dataStr, pago: false });
@@ -1074,7 +1075,67 @@
     };
 
     window.excluirPessoa = function(i) { dadosCompart.pessoas.splice(i, 1); salvarCompart(); renderCompart(); };
-    window.excluirContaCompart = function(i) { dadosCompart.contas.splice(i, 1); salvarCompart(); renderCompart(); };
+    
+    window.excluirContaCompart = function(idx) {
+        const c = dadosCompart.contas[idx];
+        if (!c) return;
+
+        if (c.serieId) {
+            const html = `
+                <div class="space-y-6">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </div>
+                        <h3 class="text-xl font-bold">Excluir Conta Compartilhada</h3>
+                        <p class="text-gray-500 text-sm mt-2">Esta conta faz parte de uma série mensal. Como deseja prosseguir?</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-3">
+                        <button onclick="excluirContaCompartAcao(${c.id}, 'apenas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-red-500/50">
+                            <p class="font-bold text-sm">Excluir somente esta</p>
+                            <p class="text-[10px] text-gray-500">Remove apenas o lançamento selecionado</p>
+                        </button>
+                        <button onclick="excluirContaCompartAcao(${c.id}, 'proximas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-red-500/50">
+                            <p class="font-bold text-sm">Esta e as próximas</p>
+                            <p class="text-[10px] text-gray-500">Remove esta e todos os lançamentos futuros da série</p>
+                        </button>
+                        <button onclick="excluirContaCompartAcao(${c.id}, 'todas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-red-500/50">
+                            <p class="font-bold text-sm text-red-400">Excluir todas</p>
+                            <p class="text-[10px] text-red-400/50">Remove todos os lançamentos passados e futuros desta série</p>
+                        </button>
+                    </div>
+                    
+                    <button onclick="closeModal()" class="w-full py-4 text-gray-500 text-xs font-bold uppercase tracking-widest">Cancelar</button>
+                </div>
+            `;
+            const modal = document.getElementById('modal');
+            document.getElementById('modal-content-inner').innerHTML = html;
+            modal.classList.remove('hidden');
+        } else {
+            if (confirm('Deseja excluir esta conta?')) {
+                excluirContaCompartAcao(c.id, 'apenas');
+            }
+        }
+    };
+
+    window.excluirContaCompartAcao = function(id, modo) {
+        const c = dadosCompart.contas.find(x => x.id === id);
+        if (!c) return;
+
+        if (modo === 'apenas') {
+            dadosCompart.contas = dadosCompart.contas.filter(x => x.id !== id);
+        } else if (modo === 'proximas') {
+            dadosCompart.contas = dadosCompart.contas.filter(x => x.serieId !== c.serieId || new Date(x.data) < new Date(c.data));
+        } else if (modo === 'todas') {
+            dadosCompart.contas = dadosCompart.contas.filter(x => x.serieId !== c.serieId);
+        }
+
+        salvarCompart();
+        renderCompart();
+        closeModal();
+        mostrarToast('Conta excluída com sucesso');
+    };
 
     function formMeta(content, editIndex) {
         content.innerHTML = `

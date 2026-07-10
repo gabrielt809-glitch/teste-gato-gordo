@@ -305,7 +305,10 @@
                         <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                     </div>
                 </div>
-                <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}</p>
+                <div class="flex items-center gap-3">
+                    <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}</p>
+                    <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
+                </div>
             </div>
         `).join('') || '<p class="text-gray-500 text-center py-4">Sem transações este mês</p>';
 
@@ -455,7 +458,10 @@
                             <p>${t.descricao}</p>
                             <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                         </div>
-                        <p class="font-bold text-red-400">${fmt(t.valor)}</p>
+                        <div class="flex items-center gap-3">
+                            <p class="font-bold text-red-400">${fmt(t.valor)}</p>
+                            <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
+                        </div>
                     </div>
                 `).join('') || '<p class="text-gray-500 text-center text-xs py-4">Sem lançamentos este mês</p>'}
             </div>
@@ -515,9 +521,12 @@
                                     <p class="text-sm font-medium">${t.descricao}</p>
                                     <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                                 </div>
-                                <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">
-                                    ${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}
-                                </p>
+                                <div class="flex items-center gap-3">
+                                    <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">
+                                        ${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}
+                                    </p>
+                                    <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
+                                </div>
                             </div>
                         `).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma transação este mês</p>'}
                     </div>
@@ -576,6 +585,76 @@
         p.transacoes = p.transacoes.filter(t => !(t.cartaoId === cartao.id && new Date(t.data).getMonth() === mesRefPessoal && new Date(t.data).getFullYear() === anoRefPessoal && t.tipo === 'despesa-cartao'));
 
         salvarPessoal(); renderPessoal(); abrirTelaCartao(idx);
+    };
+
+    window.confirmarExcluirTransacao = function(id) {
+        const p = perfil();
+        const t = p.transacoes.find(x => x.id === id);
+        if (!t) return;
+
+        if (t.serieId) {
+            const html = `
+                <div class="space-y-6">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </div>
+                        <h3 class="text-xl font-bold">Excluir Transação Recorrente</h3>
+                        <p class="text-gray-500 text-sm mt-2">Esta transação faz parte de uma série. Como deseja prosseguir?</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 gap-3">
+                        <button onclick="excluirTransacaoAcao(${id}, 'apenas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-red-500/50">
+                            <p class="font-bold text-sm">Excluir somente esta</p>
+                            <p class="text-[10px] text-gray-500">Remove apenas o lançamento selecionado</p>
+                        </button>
+                        <button onclick="excluirTransacaoAcao(${id}, 'proximas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-red-500/50">
+                            <p class="font-bold text-sm">Esta e as próximas</p>
+                            <p class="text-[10px] text-gray-500">Remove esta e todos os lançamentos futuros da série</p>
+                        </button>
+                        <button onclick="excluirTransacaoAcao(${id}, 'todas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-red-500/50">
+                            <p class="font-bold text-sm text-red-400">Excluir todas</p>
+                            <p class="text-[10px] text-red-400/50">Remove todos os lançamentos passados e futuros desta série</p>
+                        </button>
+                    </div>
+                    
+                    <button onclick="closeModal()" class="w-full py-4 text-gray-500 text-xs font-bold uppercase tracking-widest">Cancelar</button>
+                </div>
+            `;
+            const modal = document.getElementById('modal');
+            document.getElementById('modal-content-inner').innerHTML = html;
+            modal.classList.remove('hidden');
+        } else {
+            if (confirm('Deseja excluir esta transação?')) {
+                excluirTransacaoAcao(id, 'apenas');
+            }
+        }
+    };
+
+    window.excluirTransacaoAcao = function(id, modo) {
+        const p = perfil();
+        const t = p.transacoes.find(x => x.id === id);
+        if (!t) return;
+
+        if (modo === 'apenas') {
+            p.transacoes = p.transacoes.filter(x => x.id !== id);
+        } else if (modo === 'proximas') {
+            p.transacoes = p.transacoes.filter(x => x.serieId !== t.serieId || new Date(x.data) < new Date(t.data));
+        } else if (modo === 'todas') {
+            p.transacoes = p.transacoes.filter(x => x.serieId !== t.serieId);
+        }
+
+        salvarPessoal();
+        renderPessoal();
+        if (telaAtual === 'detalhe-conta') {
+            const idx = p.contas.findIndex(c => c.id === t.contaId || c.id === t.contaDestinoId);
+            if (idx !== -1) abrirTelaConta(idx);
+        } else if (telaAtual === 'detalhe-cartao') {
+            const idx = p.cartoes.findIndex(c => c.id === t.cartaoId);
+            if (idx !== -1) abrirTelaCartao(idx);
+        }
+        closeModal();
+        mostrarToast('Transação excluída com sucesso');
     };
 
     window.openModal = function(tipo, editIndex = null, contaPreSelecionada = null, cartaoPreSelecionado = null) {
@@ -761,14 +840,16 @@
             for (let i = 0; i < numParcelas; i++) {
                 const novaData = new Date(dataBase);
                 novaData.setMonth(dataBase.getMonth() + i);
-                p.transacoes.push({
-                    id: Date.now() + i,
-                    tipo: 'despesa-cartao',
-                    descricao: isParcelado ? `${descricao} (${i+1}/${numParcelas})` : descricao,
-                    valor: valorParcela,
-                    data: novaData.toISOString().split('T')[0],
-                    cartaoId: cartaoId
-                });
+                    const serieId = Date.now();
+                    p.transacoes.push({
+                        id: Date.now() + i,
+                        serieId: isParcelado ? serieId : null,
+                        tipo: 'despesa-cartao',
+                        descricao: isParcelado ? `${descricao} (${i+1}/${numParcelas})` : descricao,
+                        valor: valorParcela,
+                        data: novaData.toISOString().split('T')[0],
+                        cartaoId: cartaoId
+                    });
             }
         } else {
             const contaId = parseInt(document.getElementById('f-trans-conta').value);
@@ -786,10 +867,12 @@
                     else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
                     else novaData.setMonth(dataBase.getMonth() + i);
                     
+                    const serieId = Date.now();
                     p.transacoes.push({
                         id: Date.now() + i,
+                        serieId: serieId,
                         tipo,
-                        descricao: isParcelado ? `${descricao} (${i+1}/${numCiclos})` : descricao,
+                        descricao: isParcelado ? `${descricao} (${i+1}/${numParcelas})` : descricao,
                         valor: valorCiclo,
                         data: novaData.toISOString().split('T')[0],
                         contaId,

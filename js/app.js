@@ -325,6 +325,7 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}</p>
+                    <button onclick="openModal('transacao', ${t.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
                     <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
                 </div>
             </div>
@@ -478,6 +479,7 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <p class="font-bold text-red-400">${fmt(t.valor)}</p>
+                            <button onclick="openModal('transacao', ${t.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
                             <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
                         </div>
                     </div>
@@ -543,6 +545,7 @@
                                     <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">
                                         ${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}
                                     </p>
+                                    <button onclick="openModal('transacao', ${t.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
                                     <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
                                 </div>
                             </div>
@@ -675,16 +678,16 @@
         mostrarToast('Transação excluída com sucesso');
     };
 
-    window.openModal = function(tipo, editIndex = null, contaPreSelecionada = null, cartaoPreSelecionado = null) {
+    window.openModal = function(tipo, editId = null, contaPreSelecionada = null, cartaoPreSelecionado = null) {
       const modal = document.getElementById('modal');
       const content = document.getElementById('modal-content-inner');
       modal.classList.remove('hidden');
-      if (tipo === 'conta') formConta(content, editIndex);
-      else if (tipo === 'cartao') formCartao(content, editIndex);
-      else if (tipo === 'pessoa') formPessoa(content, editIndex);
-      else if (tipo === 'conta-compartilhada') formContaCompart(content, editIndex);
-      else if (tipo === 'transacao') formTransacao(content, editIndex, contaPreSelecionada, cartaoPreSelecionado);
-      else if (tipo === 'meta') formMeta(content, editIndex);
+      if (tipo === 'conta') formConta(content, editId);
+      else if (tipo === 'cartao') formCartao(content, editId);
+      else if (tipo === 'pessoa') formPessoa(content, editId);
+      else if (tipo === 'conta-compartilhada') formContaCompart(content, editId);
+      else if (tipo === 'transacao') formTransacao(content, editId, contaPreSelecionada, cartaoPreSelecionado);
+      else if (tipo === 'meta') formMeta(content, editId);
     };
     window.closeModal = function() { document.getElementById('modal').classList.add('hidden'); };
 
@@ -794,11 +797,11 @@
         salvarPessoal(); renderPessoal(); closeModal();
     };
 
-    function formTransacao(content, editIndex, contaPre, cartaoPre) {
+    function formTransacao(content, editId, contaPre, cartaoPre) {
         const p = perfil();
-        const t = editIndex !== null ? p.transacoes[editIndex] : { tipo: cartaoPre ? 'cartao' : 'despesa', valor: 0, descricao: '', data: new Date().toISOString().split('T')[0], contaId: contaPre || (p.contas[0]?.id || ''), recorrencia: 'nenhuma' };
+        const t = editId !== null ? p.transacoes.find(x => x.id === editId) : { tipo: cartaoPre ? 'cartao' : 'despesa', valor: 0, descricao: '', data: new Date().toISOString().split('T')[0], contaId: contaPre || (p.contas[0]?.id || ''), recorrencia: 'nenhuma' };
         content.innerHTML = `
-            <h3 class="text-lg font-bold mb-4">Nova Transação</h3>
+            <h3 class="text-lg font-bold mb-4">${editId !== null ? 'Editar' : 'Nova'} Transação</h3>
             <div class="space-y-3">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -855,7 +858,7 @@
                         ${p.contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
                     </select>
                 </div>
-                <button onclick="salvarTransacao()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2">Salvar</button>
+                <button onclick="salvarTransacao(${editId})" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2">Salvar</button>
             </div>
         `;
         window.toggleTransDestino = function() {
@@ -871,7 +874,40 @@
         setTimeout(() => { toggleTransDestino(); toggleParcelas(); }, 0);
     }
 
-    window.salvarTransacao = function() {
+    window.salvarTransacaoAcao = function(editId, modo) {
+        const p = perfil();
+        const t = p.transacoes.find(x => x.id === editId);
+        if (!t) return;
+
+        const tipo = document.getElementById('f-trans-tipo').value;
+        const descricao = document.getElementById('f-trans-desc').value;
+        const valor = parseFloat(document.getElementById('f-trans-valor').value) || 0;
+        const data = document.getElementById('f-trans-data').value;
+        const contaId = parseInt(document.getElementById('f-trans-conta').value);
+        const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);
+        const contaDestinoId = parseInt(document.getElementById('f-trans-conta-dest').value);
+
+        if (modo === 'apenas') {
+            Object.assign(t, { tipo, descricao, valor, data, contaId, cartaoId, contaDestinoId });
+        } else if (modo === 'proximas') {
+            p.transacoes.forEach(x => {
+                if (x.serieId === t.serieId && new Date(x.data) >= new Date(t.data)) {
+                    Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId });
+                }
+            });
+        } else if (modo === 'todas') {
+            p.transacoes.forEach(x => {
+                if (x.serieId === t.serieId) {
+                    Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId });
+                }
+            });
+        }
+
+        salvarPessoal(); renderPessoal(); closeModal();
+        mostrarToast('Alterações salvas com sucesso');
+    };
+
+    window.salvarTransacao = function(editId) {
         const p = perfil();
         const tipo = document.getElementById('f-trans-tipo').value;
         const recorrencia = document.getElementById('f-trans-recorrencia').value;
@@ -880,6 +916,43 @@
         const dataStr = document.getElementById('f-trans-data').value;
         
         if (!descricao || valorTotal <= 0) return alert('Preencha os campos corretamente');
+
+        if (editId) {
+            const t = p.transacoes.find(x => x.id === editId);
+            if (t && t.serieId) {
+                const html = `
+                    <div class="space-y-6">
+                        <div class="text-center">
+                            <div class="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </div>
+                            <h3 class="text-xl font-bold">Editar Transação Recorrente</h3>
+                            <p class="text-gray-500 text-sm mt-2">Como deseja aplicar as alterações nesta série?</p>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3">
+                            <button onclick="salvarTransacaoAcao(${editId}, 'apenas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-amber-500/50">
+                                <p class="font-bold text-sm">Somente esta</p>
+                                <p class="text-[10px] text-gray-500">Altera apenas o lançamento selecionado</p>
+                            </button>
+                            <button onclick="salvarTransacaoAcao(${editId}, 'proximas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-amber-500/50">
+                                <p class="font-bold text-sm">Esta e as próximas</p>
+                                <p class="text-[10px] text-gray-500">Altera esta e todos os lançamentos futuros da série</p>
+                            </button>
+                            <button onclick="salvarTransacaoAcao(${editId}, 'todas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-amber-500/50">
+                                <p class="font-bold text-sm text-amber-400">Todas</p>
+                                <p class="text-[10px] text-amber-400/50">Altera todos os lançamentos passados e futuros desta série</p>
+                            </button>
+                        </div>
+                        <button onclick="closeModal()" class="w-full py-4 text-gray-500 text-xs font-bold uppercase tracking-widest">Cancelar</button>
+                    </div>
+                `;
+                document.getElementById('modal-content-inner').innerHTML = html;
+                return;
+            } else if (t) {
+                salvarTransacaoAcao(editId, 'apenas');
+                return;
+            }
+        }
 
         if (tipo === 'cartao') {
             const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);

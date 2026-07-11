@@ -256,25 +256,43 @@
                 if (t.tipo === 'transferencia' && t.contaDestinoId === c.id) saldoConta += t.valor;
             });
             return `
-                <div class="card-premium rounded-2xl p-4 flex justify-between items-center" onclick="abrirTelaConta(${i})">
-                    <div><p class="font-medium">${c.nome}</p><p class="text-[10px] text-gray-500 uppercase">${c.tipo}</p></div>
-                    <p class="font-bold text-amber-400">${fmt(saldoConta)}</p>
+                <div class="card-premium rounded-2xl p-4 flex justify-between items-center cursor-pointer active:scale-95 transition-transform" onclick="abrirTelaConta(${i})">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl" style="background: ${c.cor || '#f59e0b'}20; color: ${c.cor || '#f59e0b'}">${c.icone || '🏦'}</div>
+                        <div>
+                            <p class="font-bold text-sm">${c.nome}</p>
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wider">${c.tipo}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <p class="font-bold text-sm ${saldoConta >= 0 ? 'text-green-400' : 'text-red-400'}">${fmt(saldoConta)}</p>
+                        <button onclick="event.stopPropagation(); openModal('conta', ${i})" class="text-gray-500 text-xs">✎</button>
+                    </div>
                 </div>
             `;
         }).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma conta cadastrada</p>';
 
         const listaCartoes = document.getElementById('lista-cartoes');
         listaCartoes.innerHTML = p.cartoes.map((c, i) => `
-            <div class="card-premium rounded-2xl p-4" onclick="abrirTelaCartao(${i})">
-                <div class="flex justify-between items-center mb-2">
-                    <p class="font-medium">${c.nome}</p>
-                    <p class="text-xs text-gray-500">Fecha dia ${c.diaFechamento}</p>
+            <div class="card-premium rounded-2xl p-4 cursor-pointer active:scale-95 transition-transform" onclick="abrirTelaCartao(${i})">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl" style="background: ${c.cor || '#3b82f6'}20; color: ${c.cor || '#3b82f6'}">${c.icone || '💳'}</div>
+                        <div>
+                            <p class="font-bold text-sm">${c.nome}</p>
+                            <p class="text-[10px] text-gray-500">Vence dia ${c.diaVencimento}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="event.stopPropagation(); openModal('cartao', ${i})" class="text-gray-500 text-xs">✎</button>
+                        <button onclick="event.stopPropagation(); excluirCartao(${i})" class="text-red-500/50 text-xs">✕</button>
+                    </div>
                 </div>
-                <div class="flex justify-between text-xs mb-1">
-                    <span class="text-gray-400">Utilizado: <span class="text-white">${fmt(c.utilizado)}</span></span>
+                <div class="flex justify-between text-[10px] mb-1">
+                    <span class="text-gray-400">Utilizado: <span class="text-white font-bold">${fmt(c.utilizado)}</span></span>
                     <span class="text-gray-400">Limite: ${fmt(c.limite)}</span>
                 </div>
-                <div class="progress-bar"><div class="progress-fill bg-amber-500" style="width:${Math.min((c.utilizado/c.limite)*100, 100)}%"></div></div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${Math.min((c.utilizado/c.limite)*100, 100)}%; background: ${c.cor || '#f59e0b'}"></div></div>
             </div>
         `).join('') || '<p class="text-gray-500 text-center py-4">Nenhum cartão cadastrado</p>';
 
@@ -673,12 +691,29 @@
     // --- FORMULÁRIOS ---
     function formConta(content, editIndex) {
         const p = perfil();
-        const c = editIndex !== null ? p.contas[editIndex] : { nome: '', tipo: 'corrente', saldoInicial: 0 };
+        const c = editIndex !== null ? p.contas[editIndex] : { nome: '', tipo: 'corrente', saldoInicial: 0, cor: '#f59e0b', icone: '🏦' };
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-4">${editIndex !== null ? 'Editar' : 'Nova'} Conta</h3>
             <div class="space-y-3">
                 <label class="text-xs text-gray-400">Nome da Conta</label>
                 <input id="f-conta-nome" value="${c.nome}" placeholder="Ex: Nubank, Carteira" class="w-full p-3 rounded-xl">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400">Ícone</label>
+                        <select id="f-conta-icone" class="w-full p-3 rounded-xl">
+                            <option value="🏦" ${c.icone==='🏦'?'selected':''}>🏦 Banco</option>
+                            <option value="💰" ${c.icone==='💰'?'selected':''}>💰 Dinheiro</option>
+                            <option value="💳" ${c.icone==='💳'?'selected':''}>💳 Cartão</option>
+                            <option value="📈" ${c.icone==='📈'?'selected':''}>📈 Investimento</option>
+                            <option value="🏠" ${c.icone==='🏠'?'selected':''}>🏠 Casa</option>
+                            <option value="📱" ${c.icone==='📱'?'selected':''}>📱 Digital</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400">Cor</label>
+                        <input id="f-conta-cor" type="color" value="${c.cor || '#f59e0b'}" class="w-full h-[48px] p-1 rounded-xl bg-white/5 border-none">
+                    </div>
+                </div>
                 <label class="text-xs text-gray-400">Tipo</label>
                 <select id="f-conta-tipo" class="w-full p-3 rounded-xl">
                     <option value="corrente" ${c.tipo==='corrente'?'selected':''}>Corrente</option>
@@ -696,21 +731,39 @@
         const p = perfil();
         const nome = document.getElementById('f-conta-nome').value;
         const tipo = document.getElementById('f-conta-tipo').value;
+        const icone = document.getElementById('f-conta-icone').value;
+        const cor = document.getElementById('f-conta-cor').value;
         const saldo = parseFloat(document.getElementById('f-conta-saldo').value) || 0;
         if (!nome) return;
-        if (idx !== null) p.contas[idx] = { ...p.contas[idx], nome, tipo, saldoInicial: saldo };
-        else p.contas.push({ id: Date.now(), nome, tipo, saldoInicial: saldo });
+        if (idx !== null) p.contas[idx] = { ...p.contas[idx], nome, tipo, icone, cor, saldoInicial: saldo };
+        else p.contas.push({ id: Date.now(), nome, tipo, icone, cor, saldoInicial: saldo });
         salvarPessoal(); renderPessoal(); closeModal();
     };
 
     function formCartao(content, editIndex) {
         const p = perfil();
-        const c = editIndex !== null ? p.cartoes[editIndex] : { nome: '', limite: 0, diaFechamento: 1, diaVencimento: 10, utilizado: 0 };
+        const c = editIndex !== null ? p.cartoes[editIndex] : { nome: '', limite: 0, diaFechamento: 1, diaVencimento: 10, utilizado: 0, cor: '#3b82f6', icone: '💳' };
         content.innerHTML = `
-            <h3 class="text-lg font-bold mb-4">Novo Cartão</h3>
+            <h3 class="text-lg font-bold mb-4">${editIndex !== null ? 'Editar' : 'Novo'} Cartão</h3>
             <div class="space-y-3">
                 <label class="text-xs text-gray-400">Nome do Cartão</label>
                 <input id="f-cartao-nome" value="${c.nome}" placeholder="Ex: Visa, Master" class="w-full p-3 rounded-xl">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400">Ícone</label>
+                        <select id="f-cartao-icone" class="w-full p-3 rounded-xl">
+                            <option value="💳" ${c.icone==='💳'?'selected':''}>💳 Cartão</option>
+                            <option value="🏦" ${c.icone==='🏦'?'selected':''}>🏦 Banco</option>
+                            <option value="🌟" ${c.icone==='🌟'?'selected':''}>🌟 Premium</option>
+                            <option value="🛍️" ${c.icone==='🛍️'?'selected':''}>🛍️ Compras</option>
+                            <option value="✈️" ${c.icone==='✈️'?'selected':''}>✈️ Viagem</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400">Cor</label>
+                        <input id="f-cartao-cor" type="color" value="${c.cor || '#3b82f6'}" class="w-full h-[48px] p-1 rounded-xl bg-white/5 border-none">
+                    </div>
+                </div>
                 <label class="text-xs text-gray-400">Limite</label>
                 <input id="f-cartao-limite" type="number" step="0.01" value="${c.limite}" class="w-full p-3 rounded-xl">
                 <div class="grid grid-cols-2 gap-3">
@@ -730,12 +783,14 @@
     window.salvarCartao = function(idx) {
         const p = perfil();
         const nome = document.getElementById('f-cartao-nome').value;
+        const icone = document.getElementById('f-cartao-icone').value;
+        const cor = document.getElementById('f-cartao-cor').value;
         const limite = parseFloat(document.getElementById('f-cartao-limite').value) || 0;
         const diaFechamento = parseInt(document.getElementById('f-cartao-fecha').value) || 1;
         const diaVencimento = parseInt(document.getElementById('f-cartao-vence').value) || 10;
         if (!nome) return;
-        if (idx !== null) p.cartoes[idx] = { ...p.cartoes[idx], nome, limite, diaFechamento, diaVencimento };
-        else p.cartoes.push({ id: Date.now(), nome, limite, diaFechamento, diaVencimento, utilizado: 0 });
+        if (idx !== null) p.cartoes[idx] = { ...p.cartoes[idx], nome, icone, cor, limite, diaFechamento, diaVencimento };
+        else p.cartoes.push({ id: Date.now(), nome, icone, cor, limite, diaFechamento, diaVencimento, utilizado: 0 });
         salvarPessoal(); renderPessoal(); closeModal();
     };
 

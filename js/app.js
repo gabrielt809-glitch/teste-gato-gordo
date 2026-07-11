@@ -1032,6 +1032,8 @@
                         <label class="text-xs text-gray-400">Recorrência</label>
                         <select id="f-comp-recorrencia" class="w-full p-3 rounded-xl">
                             <option value="nenhuma">Nenhuma</option>
+                            <option value="semanal">Semanal</option>
+                            <option value="quinzenal">Quinzenal</option>
                             <option value="mensal">Mensal</option>
                         </select>
                     </div>
@@ -1060,12 +1062,16 @@
         const dataStr = document.getElementById('f-comp-data').value;
         if (!descricao || valorTotal <= 0) return;
         const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
-        if (recorrencia === 'mensal') {
+        if (recorrencia !== 'nenhuma') {
             const dataBase = new Date(dataStr + 'T00:00:00');
             const serieId = Date.now();
-            for (let i = 0; i < 24; i++) {
+            const numCiclos = 24;
+            for (let i = 0; i < numCiclos; i++) {
                 const novaData = new Date(dataBase);
-                novaData.setMonth(dataBase.getMonth() + i);
+                if (recorrencia === 'semanal') novaData.setDate(dataBase.getDate() + (i * 7));
+                else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
+                else novaData.setMonth(dataBase.getMonth() + i);
+                
                 dadosCompart.contas.push({ id: Date.now() + i, serieId, descricao, valor: valorFinal, data: novaData.toISOString().split('T')[0], pago: false });
             }
         } else {

@@ -1144,16 +1144,17 @@
         salvarCompart(); renderCompart(); closeModal();
     };
 
-    function formContaCompart(content, editIndex) {
+    function formContaCompart(content, editId) {
+        const c = editId !== null ? dadosCompart.contas.find(x => x.id === editId) : { tipo: 'despesa', descricao: '', valor: 0, data: new Date().toISOString().split('T')[0], recorrencia: 'nenhuma' };
         content.innerHTML = `
-            <h3 class="text-lg font-bold mb-4">Nova Conta Compartilhada</h3>
+            <h3 class="text-lg font-bold mb-4">${editId !== null ? 'Editar' : 'Nova'} Conta Compartilhada</h3>
             <div class="space-y-3">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="text-xs text-gray-400">Tipo</label>
                         <select id="f-comp-tipo" class="w-full p-3 rounded-xl">
-                            <option value="despesa">Despesa</option>
-                            <option value="receita">Receita</option>
+                            <option value="despesa" ${c.tipo==='despesa'?'selected':''}>Despesa</option>
+                            <option value="receita" ${c.tipo==='receita'?'selected':''}>Receita</option>
                         </select>
                     </div>
                     <div>
@@ -1167,22 +1168,52 @@
                     </div>
                 </div>
                 <label class="text-xs text-gray-400">Descrição</label>
-                <input id="f-comp-desc" placeholder="Ex: Mercado, Aluguel" class="w-full p-3 rounded-xl">
+                <input id="f-comp-desc" value="${c.descricao}" placeholder="Ex: Mercado, Aluguel" class="w-full p-3 rounded-xl">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="text-xs text-gray-400">Valor Total</label>
-                        <input id="f-comp-valor" type="number" step="0.01" placeholder="0,00" class="w-full p-3 rounded-xl">
+                        <input id="f-comp-valor" type="number" step="0.01" value="${Math.abs(c.valor)}" placeholder="0,00" class="w-full p-3 rounded-xl">
                     </div>
                     <div>
                         <label class="text-xs text-gray-400">Data</label>
-                        <input id="f-comp-data" type="date" value="${new Date().toISOString().split('T')[0]}" class="w-full p-3 rounded-xl">
+                        <input id="f-comp-data" type="date" value="${c.data}" class="w-full p-3 rounded-xl">
                     </div>
                 </div>
-                <button onclick="salvarContaComp()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2">Salvar</button>
+                <button onclick="salvarContaComp(${editId})" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2">Salvar</button>
             </div>
         `;
     }
-    window.salvarContaComp = function() {
+    window.salvarContaCompartAcao = function(editId, modo) {
+        const c = dadosCompart.contas.find(x => x.id === editId);
+        if (!c) return;
+
+        const tipo = document.getElementById('f-comp-tipo').value;
+        const descricao = document.getElementById('f-comp-desc').value;
+        const valorTotal = parseFloat(document.getElementById('f-comp-valor').value) || 0;
+        const data = document.getElementById('f-comp-data').value;
+        const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
+
+        if (modo === 'apenas') {
+            Object.assign(c, { descricao, valor: valorFinal, data });
+        } else if (modo === 'proximas') {
+            dadosCompart.contas.forEach(x => {
+                if (x.serieId === c.serieId && new Date(x.data) >= new Date(c.data)) {
+                    Object.assign(x, { descricao, valor: valorFinal });
+                }
+            });
+        } else if (modo === 'todas') {
+            dadosCompart.contas.forEach(x => {
+                if (x.serieId === c.serieId) {
+                    Object.assign(x, { descricao, valor: valorFinal });
+                }
+            });
+        }
+
+        salvarCompart(); renderCompart(); closeModal();
+        mostrarToast('Alterações salvas com sucesso');
+    };
+
+    window.salvarContaComp = function(editId) {
         const tipo = document.getElementById('f-comp-tipo').value;
         const recorrencia = document.getElementById('f-comp-recorrencia').value;
         const descricao = document.getElementById('f-comp-desc').value;
@@ -1190,6 +1221,44 @@
         const dataStr = document.getElementById('f-comp-data').value;
         if (!descricao || valorTotal <= 0) return;
         const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
+
+        if (editId) {
+            const c = dadosCompart.contas.find(x => x.id === editId);
+            if (c && c.serieId) {
+                const html = `
+                    <div class="space-y-6">
+                        <div class="text-center">
+                            <div class="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </div>
+                            <h3 class="text-xl font-bold">Editar Conta Recorrente</h3>
+                            <p class="text-gray-500 text-sm mt-2">Como deseja aplicar as alterações nesta série?</p>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3">
+                            <button onclick="salvarContaCompartAcao(${editId}, 'apenas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-amber-500/50">
+                                <p class="font-bold text-sm">Somente esta</p>
+                                <p class="text-[10px] text-gray-500">Altera apenas o lançamento selecionado</p>
+                            </button>
+                            <button onclick="salvarContaCompartAcao(${editId}, 'proximas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-amber-500/50">
+                                <p class="font-bold text-sm">Esta e as próximas</p>
+                                <p class="text-[10px] text-gray-500">Altera esta e todos os lançamentos futuros da série</p>
+                            </button>
+                            <button onclick="salvarContaCompartAcao(${editId}, 'todas')" class="w-full card-premium p-4 rounded-2xl text-left hover:border-amber-500/50">
+                                <p class="font-bold text-sm text-amber-400">Todas</p>
+                                <p class="text-[10px] text-amber-400/50">Altera todos os lançamentos passados e futuros desta série</p>
+                            </button>
+                        </div>
+                        <button onclick="closeModal()" class="w-full py-4 text-gray-500 text-xs font-bold uppercase tracking-widest">Cancelar</button>
+                    </div>
+                `;
+                document.getElementById('modal-content-inner').innerHTML = html;
+                return;
+            } else if (c) {
+                salvarContaCompartAcao(editId, 'apenas');
+                return;
+            }
+        }
+
         if (recorrencia !== 'nenhuma') {
             const dataBase = new Date(dataStr + 'T00:00:00');
             const serieId = Date.now();

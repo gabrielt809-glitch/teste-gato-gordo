@@ -92,7 +92,27 @@
         const nome = document.getElementById('new-perfil-nome').value;
         const pass = document.getElementById('new-perfil-pass').value;
         if (!nome || !pass) return;
-        perfis.push({ nome, pass, contas: [], cartoes: [], transacoes: [] });
+        
+        // Categorias padrão com limites zerados
+        const categoriasPadrao = [
+            { id: 1, nome: 'Alimentação', icone: '🍎', limite: 0 },
+            { id: 2, nome: 'Lazer', icone: '🍿', limite: 0 },
+            { id: 3, nome: 'Saúde', icone: '🏥', limite: 0 },
+            { id: 4, nome: 'Transporte', icone: '🚗', limite: 0 },
+            { id: 5, nome: 'Educação', icone: '📚', limite: 0 },
+            { id: 6, nome: 'Moradia', icone: '🏠', limite: 0 },
+            { id: 7, nome: 'Outros', icone: '📦', limite: 0 }
+        ];
+
+        perfis.push({ 
+            nome, 
+            pass, 
+            contas: [], 
+            cartoes: [], 
+            transacoes: [], 
+            metas: [],
+            categorias: categoriasPadrao
+        });
         salvarPerfis();
         renderLogin();
     };
@@ -190,6 +210,13 @@
                         <div class="text-left">
                             <p class="font-bold text-sm">Exportar Extrato (CSV)</p>
                             <p class="text-[10px] text-gray-500">Planilha detalhada de transações</p>
+                        </div>
+                    </button>
+                    <button onclick="abrirCategorias()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">🏷️</span>
+                        <div class="text-left">
+                            <p class="font-bold text-sm">Categorias e Limites</p>
+                            <p class="text-[10px] text-gray-500">Definir tetos de gastos mensais</p>
                         </div>
                     </button>
                     <button onclick="logout()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4 text-red-400">
@@ -309,7 +336,30 @@
                     <button onclick="excluirMeta(${i})" class="text-red-400/50 text-[10px]">✕</button>
                 </div>
             </div>
-        `).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma meta</p>';
+        `).join('') || '';
+
+        // Inserir Limites de Categoria
+        const listaLimites = document.getElementById('lista-limites');
+        if (listaLimites) {
+            const categoriasComLimite = (p.categorias || []).filter(c => c.limite > 0);
+            listaLimites.innerHTML = categoriasComLimite.map(cat => {
+                const gastoCat = transMes.filter(t => t.categoria === cat.nome && (t.tipo === 'despesa' || t.tipo === 'despesa-cartao')).reduce((s, t) => s + t.valor, 0);
+                const pct = Math.min((gastoCat / cat.limite) * 100, 100);
+                const cor = pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-orange-500' : 'bg-green-500';
+                return `
+                    <div class="card-premium rounded-2xl p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <span>${cat.icone}</span>
+                                <p class="font-medium text-sm">${cat.nome}</p>
+                            </div>
+                            <p class="text-[10px] ${pct >= 100 ? 'text-red-400 font-bold' : 'text-gray-400'}">${fmt(gastoCat)} / ${fmt(cat.limite)}</p>
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill ${cor}" style="width:${pct}%"></div></div>
+                    </div>
+                `;
+            }).join('') || (p.metas.length === 0 ? '<p class="text-gray-500 text-center py-4">Nenhuma meta ou limite definido</p>' : '');
+        }
 
         const listaTrans = document.getElementById('lista-transacoes');
         listaTrans.innerHTML = transMes.slice().reverse().map((t, i) => `
@@ -340,7 +390,7 @@
         
         const categorias = {};
         trans.filter(t => t.tipo === 'despesa' || t.tipo === 'despesa-cartao').forEach(t => {
-            const cat = t.descricao.split(':')[0].trim();
+            const cat = t.categoria || 'Outros';
             categorias[cat] = (categorias[cat] || 0) + t.valor;
         });
 
@@ -828,6 +878,12 @@
                     <label class="text-xs text-gray-400">Número de Parcelas</label>
                     <input id="f-trans-parcelas-num" type="number" value="1" class="w-full p-3 rounded-xl">
                 </div>
+                <div id="f-trans-categoria-group">
+                    <label class="text-xs text-gray-400">Categoria</label>
+                    <select id="f-trans-categoria" class="w-full p-3 rounded-xl">
+                        ${(p.categorias || []).map(cat => `<option value="${cat.nome}" ${t.categoria === cat.nome ? 'selected' : ''}>${cat.icone} ${cat.nome}</option>`).join('')}
+                    </select>
+                </div>
                 <label class="text-xs text-gray-400">Descrição</label>
                 <input id="f-trans-desc" value="${t.descricao}" placeholder="Ex: Aluguel, Salário" class="w-full p-3 rounded-xl">
                 <div class="grid grid-cols-2 gap-3">
@@ -887,18 +943,19 @@
         const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);
         const contaDestinoId = parseInt(document.getElementById('f-trans-conta-dest').value);
 
+        const categoria = document.getElementById('f-trans-categoria').value;
         if (modo === 'apenas') {
-            Object.assign(t, { tipo, descricao, valor, data, contaId, cartaoId, contaDestinoId });
+            Object.assign(t, { tipo, descricao, valor, data, contaId, cartaoId, contaDestinoId, categoria });
         } else if (modo === 'proximas') {
             p.transacoes.forEach(x => {
                 if (x.serieId === t.serieId && new Date(x.data) >= new Date(t.data)) {
-                    Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId });
+                    Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId, categoria });
                 }
             });
         } else if (modo === 'todas') {
             p.transacoes.forEach(x => {
                 if (x.serieId === t.serieId) {
-                    Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId });
+                    Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId, categoria });
                 }
             });
         }
@@ -1004,11 +1061,21 @@
                         valor: valorCiclo,
                         data: novaData.toISOString().split('T')[0],
                         contaId,
-                        contaDestinoId
+                        contaDestinoId,
+                        categoria: document.getElementById('f-trans-categoria').value
                     });
                 }
             } else {
-                p.transacoes.push({ id: Date.now(), tipo, descricao, valor: valorTotal, data: dataStr, contaId, contaDestinoId });
+                p.transacoes.push({ 
+                    id: Date.now(), 
+                    tipo, 
+                    descricao, 
+                    valor: valorTotal, 
+                    data: dataStr, 
+                    contaId, 
+                    contaDestinoId,
+                    categoria: document.getElementById('f-trans-categoria').value
+                });
             }
         }
         
@@ -1363,6 +1430,54 @@
         if (!p.metas) p.metas = [];
         p.metas.push({ id: Date.now(), nome, objetivo, atual });
         salvarPessoal(); renderPessoal(); closeModal();
+    };
+
+    window.abrirCategorias = function() {
+        const p = perfil();
+        if (!p.categorias) p.categorias = [];
+        
+        const html = `
+            <div class="space-y-6">
+                <div class="text-center">
+                    <h3 class="text-xl font-bold">Categorias e Limites</h3>
+                    <p class="text-gray-500 text-sm">Defina quanto deseja gastar por mês</p>
+                </div>
+                
+                <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                    ${p.categorias.map((cat, idx) => `
+                        <div class="card-premium p-4 rounded-2xl">
+                            <div class="flex items-center gap-3 mb-3">
+                                <span class="text-xl">${cat.icone}</span>
+                                <span class="font-bold text-sm">${cat.nome}</span>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-gray-500 uppercase tracking-widest">Limite Mensal</label>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-gray-400 text-sm">R$</span>
+                                    <input type="number" step="0.01" value="${cat.limite}" 
+                                        onchange="atualizarLimiteCategoria(${idx}, this.value)"
+                                        class="w-full bg-transparent border-none p-0 text-lg font-bold focus:ring-0">
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <button onclick="voltarParaApp()" class="w-full glass py-4 rounded-2xl text-gray-500 text-sm font-bold uppercase tracking-widest">Voltar</button>
+            </div>
+        `;
+        document.getElementById('app-abas').classList.add('hidden');
+        document.getElementById('tela-detalhe').classList.remove('hidden');
+        document.getElementById('detalhe-conteudo').innerHTML = html;
+        document.getElementById('btn-voltar').classList.remove('hidden');
+        document.getElementById('subtitulo-header').textContent = 'Categorias';
+    };
+
+    window.atualizarLimiteCategoria = function(idx, valor) {
+        const p = perfil();
+        p.categorias[idx].limite = parseFloat(valor) || 0;
+        salvarPessoal();
+        mostrarToast('Limite atualizado!');
     };
 
     window.toggleFabMenu = function() {

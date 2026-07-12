@@ -616,6 +616,7 @@
         document.getElementById('tela-detalhe').classList.remove('hidden');
         document.getElementById('barra-inferior').classList.add('hidden');
         document.getElementById('btn-voltar').classList.remove('hidden');
+        document.getElementById('fab-container').classList.add('hidden');
         telaAtual = 'detalhe-conta';
     };
 
@@ -624,9 +625,13 @@
         document.getElementById('tela-detalhe').classList.add('hidden');
         document.getElementById('barra-inferior').classList.remove('hidden');
         document.getElementById('btn-voltar').classList.add('hidden');
-        document.getElementById('subtitulo-header').textContent = 'Finanças Pessoais';
-        telaAtual = 'pessoal';
-        renderPessoal();
+        document.getElementById('subtitulo-header').textContent = telaAtual === 'pessoal' ? 'Finanças Pessoais' : 'Finanças Compartilhadas';
+        
+        // Restaurar visibilidade do FAB principal apenas se estiver na aba pessoal
+        document.getElementById('fab-container').classList.toggle('hidden', telaAtual !== 'pessoal');
+        
+        if (telaAtual === 'pessoal') renderPessoal();
+        else renderCompart();
     };
 
     window.pagarFatura = function(idx) {

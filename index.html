@@ -184,6 +184,43 @@
       </button>
     </nav>
 
+    <!-- Botão Flutuante (FAB) Central -->
+    <div id="fab-container" class="fixed bottom-24 right-6 z-30">
+        <button onclick="toggleFabMenu()" id="fab-main" class="w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-all duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 transition-transform duration-300" id="fab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+        </button>
+        
+        <!-- Menu do FAB -->
+        <div id="fab-menu" class="hidden absolute bottom-16 right-0 space-y-3 flex flex-col items-end">
+            <button onclick="fabAction('receita')" class="flex items-center gap-3 group">
+                <span class="bg-black/80 text-white text-[10px] font-bold px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">Receita</span>
+                <div class="w-12 h-12 bg-green-500 text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                </div>
+            </button>
+            <button onclick="fabAction('despesa')" class="flex items-center gap-3 group">
+                <span class="bg-black/80 text-white text-[10px] font-bold px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">Despesa</span>
+                <div class="w-12 h-12 bg-red-500 text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                </div>
+            </button>
+            <button onclick="fabAction('cartao')" class="flex items-center gap-3 group">
+                <span class="bg-black/80 text-white text-[10px] font-bold px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">Cartão</span>
+                <div class="w-12 h-12 bg-blue-500 text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                </div>
+            </button>
+            <button onclick="fabAction('transferencia')" class="flex items-center gap-3 group">
+                <span class="bg-black/80 text-white text-[10px] font-bold px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">Transferir</span>
+                <div class="w-12 h-12 bg-amber-500 text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                </div>
+            </button>
+        </div>
+    </div>
+
     <!-- Modal genérico -->
     <div id="modal" class="fixed inset-0 z-30 flex items-center justify-center p-4 hidden">
       <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>

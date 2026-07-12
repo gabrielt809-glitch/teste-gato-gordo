@@ -1365,6 +1365,65 @@
         salvarPessoal(); renderPessoal(); closeModal();
     };
 
+    window.toggleFabMenu = function() {
+        const menu = document.getElementById('fab-menu');
+        const icon = document.getElementById('fab-icon');
+        const isHidden = menu.classList.contains('hidden');
+        
+        if (isHidden) {
+            menu.classList.remove('hidden');
+            menu.classList.add('flex');
+            icon.style.transform = 'rotate(45deg)';
+        } else {
+            menu.classList.add('hidden');
+            menu.classList.remove('flex');
+            icon.style.transform = 'rotate(0deg)';
+        }
+    };
+
+    window.fabAction = function(tipo) {
+        toggleFabMenu(); // Fecha o menu
+        
+        if (tipo === 'receita') {
+            openModal('transacao');
+            setTimeout(() => {
+                const select = document.getElementById('f-t-tipo');
+                if (select) {
+                    select.value = 'receita';
+                    // Dispara evento de mudança para atualizar cores se necessário
+                    select.dispatchEvent(new Event('change'));
+                }
+            }, 50);
+        } else if (tipo === 'despesa') {
+            openModal('transacao');
+            setTimeout(() => {
+                const select = document.getElementById('f-t-tipo');
+                if (select) {
+                    select.value = 'despesa';
+                    select.dispatchEvent(new Event('change'));
+                }
+            }, 50);
+        } else if (tipo === 'cartao') {
+            openModal('transacao');
+            setTimeout(() => {
+                const select = document.getElementById('f-t-tipo');
+                if (select) {
+                    select.value = 'cartao';
+                    select.dispatchEvent(new Event('change'));
+                }
+            }, 50);
+        } else if (tipo === 'transferencia') {
+            openModal('transacao');
+            setTimeout(() => {
+                const select = document.getElementById('f-t-tipo');
+                if (select) {
+                    select.value = 'transferencia';
+                    select.dispatchEvent(new Event('change'));
+                }
+            }, 50);
+        }
+    };
+
     // Início
     renderLogin();
 })();

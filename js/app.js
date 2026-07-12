@@ -618,7 +618,8 @@
         document.getElementById('tela-detalhe').classList.remove('hidden');
         document.getElementById('barra-inferior').classList.add('hidden');
         document.getElementById('btn-voltar').classList.remove('hidden');
-        document.getElementById('fab-container').classList.add('hidden');
+        const fab = document.getElementById('fab-container');
+        if (fab) fab.classList.add('hidden');
         telaAtual = 'detalhe-conta';
     };
 

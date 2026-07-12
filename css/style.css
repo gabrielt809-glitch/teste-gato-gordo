@@ -122,3 +122,15 @@ header {
   height: auto !important;
   min-height: 65px;
 }
+
+/* Centralização absoluta para o símbolo + nos FABs */
+.fab-center {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+}
+.fab-center svg {
+  display: block !important;
+  margin: 0 !important;
+}

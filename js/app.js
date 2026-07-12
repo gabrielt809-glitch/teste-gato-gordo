@@ -489,10 +489,10 @@
           
           <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
           
-          <!-- Botão Flutuante (FAB) -->
-          <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-4xl font-light z-30 active:scale-90 transition-transform">
-            <div style="margin-top: -4px;">+</div>
-          </button>
+                <!-- Botão Flutuante (FAB) -->
+                <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl fab-center text-4xl font-light z-30 active:scale-90 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                </button>
         </div>
       `;
       document.getElementById('detalhe-conteudo').innerHTML = html;
@@ -556,8 +556,8 @@
                 <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
 
                 <!-- Botão Flutuante (FAB) -->
-                <button onclick="openModal('transacao', null, ${conta.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl flex items-center justify-center text-4xl font-light z-30 active:scale-90 transition-transform">
-                    <div style="margin-top: -4px;">+</div>
+                <button onclick="openModal('transacao', null, ${conta.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl fab-center text-4xl font-light z-30 active:scale-90 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                 </button>
             </div>
         `;

@@ -2,6 +2,49 @@
     let perfis = JSON.parse(localStorage.getItem('gato_gordo_perfis') || '[]');
     let perfilLogado = null;
     let telaAtual = 'pessoal';
+    
+    // Função Centralizada para Controle de UI
+    function updateUIState(novaTela) {
+        if (novaTela) telaAtual = novaTela;
+        
+        const fab = document.getElementById('fab-container');
+        const abas = document.getElementById('app-abas');
+        const detalhe = document.getElementById('tela-detalhe');
+        const barraInf = document.getElementById('barra-inferior');
+        const btnVoltar = document.getElementById('btn-voltar');
+        const subtitulo = document.getElementById('subtitulo-header');
+
+        // Lógica Absoluta de Visibilidade
+        if (telaAtual === 'pessoal') {
+            if (fab) fab.classList.remove('hidden');
+            if (abas) abas.classList.remove('hidden');
+            if (detalhe) detalhe.classList.add('hidden');
+            if (barraInf) barraInf.classList.remove('hidden');
+            if (btnVoltar) btnVoltar.classList.add('hidden');
+            if (subtitulo) subtitulo.textContent = 'Finanças Pessoais';
+        } 
+        else if (telaAtual === 'compartilhado') {
+            if (fab) fab.classList.add('hidden');
+            if (abas) abas.classList.remove('hidden');
+            if (detalhe) detalhe.classList.add('hidden');
+            if (barraInf) barraInf.classList.remove('hidden');
+            if (btnVoltar) btnVoltar.classList.add('hidden');
+            if (subtitulo) subtitulo.textContent = 'Finanças Compartilhadas';
+        }
+        else if (telaAtual === 'detalhe-conta' || telaAtual === 'detalhe-cartao') {
+            if (fab) fab.classList.add('hidden'); // FAB Principal SEMPRE oculto em detalhes
+            if (abas) abas.classList.add('hidden');
+            if (detalhe) detalhe.classList.remove('hidden');
+            if (barraInf) barraInf.classList.add('hidden');
+            if (btnVoltar) btnVoltar.classList.remove('hidden');
+            if (subtitulo) subtitulo.textContent = telaAtual === 'detalhe-conta' ? 'Extrato' : 'Cartão';
+        }
+        else if (telaAtual === 'login') {
+            if (fab) fab.classList.add('hidden');
+            document.getElementById('app-container').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+    }
     let mesRefPessoal = new Date().getMonth();
     let anoRefPessoal = new Date().getFullYear();
     let mesRefCompart = new Date().getMonth();
@@ -130,7 +173,7 @@
     function logarSucesso() {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('app-container').classList.remove('hidden');
-        document.getElementById('fab-container').classList.remove('hidden');
+        updateUIState('pessoal');
         renderPessoal();
         verificarNotificacoes();
     }
@@ -181,9 +224,7 @@
 
     window.logout = function() {
         perfilLogado = null;
-        document.getElementById('login-screen').classList.remove('hidden');
-        document.getElementById('app-container').classList.add('hidden');
-        document.getElementById('fab-container').classList.add('hidden');
+        updateUIState('login');
         renderLogin();
     };
 
@@ -463,13 +504,7 @@
     };
 
     window.switchTab = function(tab) {
-        telaAtual = tab;
-        document.getElementById('tab-pessoal').classList.toggle('hidden', tab !== 'pessoal');
-        document.getElementById('tab-compartilhado').classList.toggle('hidden', tab !== 'compartilhado');
-        document.getElementById('btn-pessoal').classList.toggle('tab-active', tab === 'pessoal');
-        document.getElementById('btn-pessoal').classList.toggle('text-gray-400', tab !== 'pessoal');
-        document.getElementById('btn-compartilhado').classList.toggle('tab-active', tab === 'compartilhado');
-        document.getElementById('btn-compartilhado').classList.toggle('text-gray-400', tab !== 'compartilhado');
+        updateUIState(tab);
         if (tab === 'pessoal') renderPessoal();
         else renderCompart();
     };
@@ -548,11 +583,7 @@
         </div>
       `;
       document.getElementById('detalhe-conteudo').innerHTML = html;
-      document.getElementById('app-abas').classList.add('hidden');
-      document.getElementById('tela-detalhe').classList.remove('hidden');
-      document.getElementById('barra-inferior').classList.add('hidden');
-      document.getElementById('btn-voltar').classList.remove('hidden');
-      telaAtual = 'detalhe-cartao';
+      updateUIState('detalhe-cartao');
     };
 
     window.abrirTelaConta = function(idx) {
@@ -614,33 +645,15 @@
             </div>
         `;
         document.getElementById('detalhe-conteudo').innerHTML = html;
-        document.getElementById('app-abas').classList.add('hidden');
-        document.getElementById('tela-detalhe').classList.remove('hidden');
-        document.getElementById('barra-inferior').classList.add('hidden');
-        document.getElementById('btn-voltar').classList.remove('hidden');
-        const fab = document.getElementById('fab-container');
-        if (fab) fab.classList.add('hidden');
-        telaAtual = 'detalhe-conta';
+        updateUIState('detalhe-conta');
     };
 
     window.voltarParaApp = function() {
-        document.getElementById('app-abas').classList.remove('hidden');
-        document.getElementById('tela-detalhe').classList.add('hidden');
-        document.getElementById('barra-inferior').classList.remove('hidden');
-        document.getElementById('btn-voltar').classList.add('hidden');
-        
-        // Se estava em um detalhe, volta para o estado da aba principal
         if (telaAtual === 'detalhe-conta' || telaAtual === 'detalhe-cartao') {
-            telaAtual = 'pessoal'; // Detalhes são sempre da aba pessoal neste app
+            updateUIState('pessoal');
+        } else {
+            updateUIState(telaAtual);
         }
-        
-        document.getElementById('subtitulo-header').textContent = telaAtual === 'pessoal' ? 'Finanças Pessoais' : 'Finanças Compartilhadas';
-        
-        // Restaurar visibilidade do FAB principal apenas se estiver na aba pessoal
-        document.getElementById('fab-container').classList.toggle('hidden', telaAtual !== 'pessoal');
-        
-        if (telaAtual === 'pessoal') renderPessoal();
-        else renderCompart();
     };
 
     window.pagarFatura = function(idx) {

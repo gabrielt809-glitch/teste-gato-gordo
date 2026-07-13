@@ -2,6 +2,8 @@
     let perfis = JSON.parse(localStorage.getItem('gato_gordo_perfis') || '[]');
     let perfilLogado = null;
     let telaAtual = 'pessoal';
+    let detalheContaId = null;
+    let detalheCartaoId = null;
 
     // --- Sincronização Compartilhada (Google Sheets via Apps Script) ---
     let syncUrl = localStorage.getItem('gato_gordo_sync_url') || 'https://script.google.com/macros/s/AKfycbyS7pjLcrMj9pnJjfw_uwqFsGCY468_qUN3-k9CinkJ1thGZYNryo_rgcH9u5UxUe6nbw/exec';
@@ -22,7 +24,7 @@
 
         // Lógica Absoluta de Visibilidade
         if (telaAtual === 'pessoal') {
-            if (fab) fab.classList.remove('hidden');
+            if (fab) { fab.classList.remove('hidden'); fab.classList.remove('bottom-6'); fab.classList.add('bottom-24'); }
             if (abas) abas.classList.remove('hidden');
             if (detalhe) detalhe.classList.add('hidden');
             if (barraInf) barraInf.classList.remove('hidden');
@@ -38,7 +40,11 @@
             if (subtitulo) subtitulo.textContent = 'Finanças Compartilhadas';
         }
         else if (telaAtual === 'detalhe-conta' || telaAtual === 'detalhe-cartao') {
-            if (fab) fab.classList.add('hidden'); // FAB Principal SEMPRE oculto em detalhes
+            if (fab) { fab.classList.remove('hidden'); fab.classList.remove('bottom-24'); fab.classList.add('bottom-6'); } // Reaproveita o FAB persistente (não fica preso na animação da tela)
+            const fabMenu = document.getElementById('fab-menu');
+            if (fabMenu) { fabMenu.classList.add('hidden'); fabMenu.classList.remove('flex'); }
+            const fabIcon = document.getElementById('fab-icon');
+            if (fabIcon) fabIcon.style.transform = 'rotate(0deg)';
             if (abas) abas.classList.add('hidden');
             if (detalhe) detalhe.classList.remove('hidden');
             if (barraInf) barraInf.classList.add('hidden');
@@ -782,6 +788,8 @@
       const p = perfil();
       const cartao = p.cartoes[idx];
       if (!cartao) return;
+      detalheCartaoId = cartao.id;
+      detalheContaId = null;
       
       const transCartaoMes = p.transacoes.filter(t => t.cartaoId === cartao.id && new Date(t.data + 'T00:00:00').getMonth() === mesRefPessoal && new Date(t.data + 'T00:00:00').getFullYear() === anoRefPessoal);
       const totalFaturaMes = transCartaoMes.reduce((s, t) => s + t.valor, 0);
@@ -844,11 +852,6 @@
           </div>
           
           <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
-          
-                <!-- Botão Flutuante (FAB) -->
-                <button onclick="openModal('transacao', null, null, ${cartao.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl fab-center text-4xl font-light z-30 active:scale-90 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                </button>
         </div>
       `;
       document.getElementById('detalhe-conteudo').innerHTML = html;
@@ -858,6 +861,8 @@
     window.abrirTelaConta = function(idx) {
         const conta = perfil()?.contas[idx];
         if (!conta) return;
+        detalheContaId = conta.id;
+        detalheCartaoId = null;
         
         const transContaMes = perfil().transacoes.filter(t => (t.contaId === conta.id || t.contaDestinoId === conta.id) && new Date(t.data + 'T00:00:00').getMonth() === mesRefPessoal && new Date(t.data + 'T00:00:00').getFullYear() === anoRefPessoal);
         
@@ -906,11 +911,6 @@
                 </div>
 
                 <button onclick="voltarParaApp()" class="w-full glass py-3 rounded-xl text-gray-400 text-sm">Voltar</button>
-
-                <!-- Botão Flutuante (FAB) -->
-                <button onclick="openModal('transacao', null, ${conta.id})" class="fixed bottom-6 right-6 w-14 h-14 bg-amber-500 text-black rounded-full shadow-2xl fab-center text-4xl font-light z-30 active:scale-90 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                </button>
             </div>
         `;
         document.getElementById('detalhe-conteudo').innerHTML = html;
@@ -1858,6 +1858,16 @@
         p.categorias[idx].limite = parseFloat(valor) || 0;
         salvarPessoal();
         mostrarToast('Limite atualizado!');
+    };
+
+    window.fabPrincipalClick = function() {
+        if (telaAtual === 'detalhe-conta' && detalheContaId) {
+            openModal('transacao', null, detalheContaId);
+        } else if (telaAtual === 'detalhe-cartao' && detalheCartaoId) {
+            openModal('transacao', null, null, detalheCartaoId);
+        } else {
+            toggleFabMenu();
+        }
     };
 
     window.toggleFabMenu = function() {

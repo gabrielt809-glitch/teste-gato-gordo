@@ -1250,7 +1250,10 @@
                             </div>
                         </div>
                     </div>
-                    <button onclick="excluirContaCompart(${originalIdx})" class="text-red-400 text-xs">✕</button>
+                    <div class="flex items-center gap-3">
+                        <button onclick="openModal('conta-compartilhada', ${c.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
+                        <button onclick="excluirContaCompart(${originalIdx})" class="text-red-400 text-xs">✕</button>
+                    </div>
                 </div>
             `;
         }).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma conta este mês</p>';
@@ -1290,6 +1293,8 @@
 
     function formContaCompart(content, editId) {
         const c = editId !== null ? dadosCompart.contas.find(x => x.id === editId) : { tipo: 'despesa', descricao: '', valor: 0, data: new Date().toISOString().split('T')[0], recorrencia: 'nenhuma' };
+        // Compatibilidade com contas criadas antes do campo "tipo" existir: infere pelo sinal do valor.
+        const tipoAtual = c.tipo || (c.valor < 0 ? 'receita' : 'despesa');
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-4">${editId !== null ? 'Editar' : 'Nova'} Conta Compartilhada</h3>
             <div class="space-y-3">
@@ -1297,8 +1302,8 @@
                     <div>
                         <label class="text-xs text-gray-400">Tipo</label>
                         <select id="f-comp-tipo" class="w-full p-3 rounded-xl">
-                            <option value="despesa" ${c.tipo==='despesa'?'selected':''}>Despesa</option>
-                            <option value="receita" ${c.tipo==='receita'?'selected':''}>Receita</option>
+                            <option value="despesa" ${tipoAtual==='despesa'?'selected':''}>Despesa</option>
+                            <option value="receita" ${tipoAtual==='receita'?'selected':''}>Receita</option>
                         </select>
                     </div>
                     <div>
@@ -1338,17 +1343,17 @@
         const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
 
         if (modo === 'apenas') {
-            Object.assign(c, { descricao, valor: valorFinal, data });
+            Object.assign(c, { descricao, valor: valorFinal, tipo, data });
         } else if (modo === 'proximas') {
             dadosCompart.contas.forEach(x => {
                 if (x.serieId === c.serieId && new Date(x.data) >= new Date(c.data)) {
-                    Object.assign(x, { descricao, valor: valorFinal });
+                    Object.assign(x, { descricao, valor: valorFinal, tipo });
                 }
             });
         } else if (modo === 'todas') {
             dadosCompart.contas.forEach(x => {
                 if (x.serieId === c.serieId) {
-                    Object.assign(x, { descricao, valor: valorFinal });
+                    Object.assign(x, { descricao, valor: valorFinal, tipo });
                 }
             });
         }
@@ -1413,10 +1418,10 @@
                 else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
                 else novaData.setMonth(dataBase.getMonth() + i);
                 
-                dadosCompart.contas.push({ id: Date.now() + i, serieId, descricao, valor: valorFinal, data: novaData.toISOString().split('T')[0], pago: false });
+                dadosCompart.contas.push({ id: Date.now() + i, serieId, descricao, valor: valorFinal, tipo, data: novaData.toISOString().split('T')[0], pago: false });
             }
         } else {
-            dadosCompart.contas.push({ id: Date.now(), descricao, valor: valorFinal, data: dataStr, pago: false });
+            dadosCompart.contas.push({ id: Date.now(), descricao, valor: valorFinal, tipo, data: dataStr, pago: false });
         }
         salvarCompart(); renderCompart(); closeModal();
     };

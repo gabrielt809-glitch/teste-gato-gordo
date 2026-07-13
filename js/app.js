@@ -505,8 +505,25 @@
 
     window.switchTab = function(tab) {
         updateUIState(tab);
-        if (tab === 'pessoal') renderPessoal();
-        else renderCompart();
+
+        const tabPessoal = document.getElementById('tab-pessoal');
+        const tabCompart = document.getElementById('tab-compartilhado');
+        const btnPessoal = document.getElementById('btn-pessoal');
+        const btnCompart = document.getElementById('btn-compartilhado');
+
+        if (tab === 'pessoal') {
+            if (tabPessoal) tabPessoal.classList.remove('hidden');
+            if (tabCompart) tabCompart.classList.add('hidden');
+            if (btnPessoal) { btnPessoal.classList.add('tab-active'); btnPessoal.classList.remove('text-gray-400'); }
+            if (btnCompart) { btnCompart.classList.remove('tab-active'); btnCompart.classList.add('text-gray-400'); }
+            renderPessoal();
+        } else {
+            if (tabCompart) tabCompart.classList.remove('hidden');
+            if (tabPessoal) tabPessoal.classList.add('hidden');
+            if (btnCompart) { btnCompart.classList.add('tab-active'); btnCompart.classList.remove('text-gray-400'); }
+            if (btnPessoal) { btnPessoal.classList.remove('tab-active'); btnPessoal.classList.add('text-gray-400'); }
+            renderCompart();
+        }
     };
 
     window.abrirTelaCartao = function(idx) {

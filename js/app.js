@@ -64,78 +64,147 @@
         return `${meses[m]} de ${a}`;
     }
 
-    // --- LOGIN ---
-    window.renderLogin = function() {
-        const container = document.getElementById('login-form');
-        if (perfis.length === 0) {
-            container.innerHTML = `
-                <div class="space-y-4">
-                    <div class="space-y-2">
-                        <label class="text-[10px] text-gray-500 uppercase tracking-widest ml-2">Nome do Perfil</label>
-                        <input id="new-perfil-nome" placeholder="Ex: Gabriel" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none">
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-[10px] text-gray-500 uppercase tracking-widest ml-2">Senha de Acesso</label>
-                        <input id="new-perfil-pass" type="password" placeholder="••••••" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none">
-                    </div>
-                    <button onclick="criarPerfil()" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">Começar Agora</button>
-                </div>
-            `;
-        } else {
-            container.innerHTML = `
-                <div id="lista-perfis-login" class="grid grid-cols-2 gap-4">
-                    ${perfis.map(p => `
-                        <div onclick="selecionarPerfil('${p.nome}')" class="group relative bg-white/5 border border-white/10 rounded-3xl p-6 transition-all hover:bg-white/10 hover:border-amber-500/50 active:scale-95 cursor-pointer">
-                            <div class="w-16 h-16 bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4 font-bold text-2xl shadow-inner">
-                                ${p.nome[0].toUpperCase()}
-                            </div>
-                            <p class="text-sm font-bold tracking-tight text-center">${p.nome}</p>
-                        </div>
-                    `).join('')}
-                    <div onclick="novoPerfil()" class="border-2 border-dashed border-white/10 rounded-3xl p-6 flex flex-col items-center justify-center text-gray-500 hover:text-white hover:border-white/20 active:scale-95 transition-all cursor-pointer">
-                        <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-2">
-                            <span class="text-xl">+</span>
-                        </div>
-                        <p class="text-[10px] font-bold uppercase tracking-widest">Novo Perfil</p>
-                    </div>
-                </div>
-                <div id="login-pass-area" class="hidden slide-in space-y-6">
-                    <div class="text-center">
-                        <p class="text-xs text-gray-500 uppercase tracking-widest">Acessando como</p>
-                        <h3 id="login-nome-selected" class="text-2xl font-black text-amber-500 mt-1"></h3>
-                    </div>
-                    <div class="space-y-4">
-                        <input id="login-pass" type="password" placeholder="Digite sua senha" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none text-center text-lg tracking-widest">
-                        <div class="grid grid-cols-5 gap-2">
-                            <button onclick="fazerLogin()" class="col-span-4 bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">Entrar</button>
-                            <button onclick="tentarBiometria()" class="bg-white/5 text-white rounded-2xl flex items-center justify-center active:scale-95 transition-all">🖐️</button>
-                        </div>
-                        <button onclick="cancelarLogin()" class="text-[10px] text-gray-600 uppercase tracking-widest w-full font-bold">Trocar Perfil</button>
-                    </div>
-                </div>
-            `;
+    // --- LOGIN / ONBOARDING (um único perfil por aparelho) ---
+    let onboardingNomeTemp = '';
+    let pinBuffer = '';
+    let pinOnComplete = null;
+
+    // Teclado numérico próprio (0-9) pra digitar o PIN sem nunca abrir o teclado nativo do aparelho.
+    function renderPinPad(container, titulo, subtitulo, onComplete) {
+        pinBuffer = '';
+        pinOnComplete = onComplete;
+        container.innerHTML = `
+            <div class="text-center mb-8">
+                <h3 class="text-lg font-bold">${titulo}</h3>
+                ${subtitulo ? `<p class="text-xs text-gray-500 mt-2">${subtitulo}</p>` : ''}
+            </div>
+            <div class="flex justify-center gap-4 mb-10">
+                ${[0,1,2,3].map(i => `<div class="pin-dot w-4 h-4 rounded-full border-2 border-white/20 transition-all"></div>`).join('')}
+            </div>
+            <div class="grid grid-cols-3 gap-4 max-w-[260px] mx-auto">
+                ${[1,2,3,4,5,6,7,8,9].map(n => `<button type="button" onclick="pinDigitar(${n})" class="aspect-square rounded-2xl bg-white/5 text-2xl font-bold active:scale-90 active:bg-amber-500/20 transition-transform">${n}</button>`).join('')}
+                <div></div>
+                <button type="button" onclick="pinDigitar(0)" class="aspect-square rounded-2xl bg-white/5 text-2xl font-bold active:scale-90 active:bg-amber-500/20 transition-transform">0</button>
+                <button type="button" onclick="pinApagar()" class="aspect-square rounded-2xl flex items-center justify-center text-xl text-gray-400 active:scale-90 transition-transform">⌫</button>
+            </div>
+        `;
+    }
+
+    window.pinDigitar = function(n) {
+        if (pinBuffer.length >= 4) return;
+        pinBuffer += String(n);
+        document.querySelectorAll('.pin-dot').forEach((dot, i) => {
+            const preenchido = i < pinBuffer.length;
+            dot.classList.toggle('bg-amber-500', preenchido);
+            dot.classList.toggle('border-amber-500', preenchido);
+        });
+        if (pinBuffer.length === 4) {
+            const valor = pinBuffer;
+            setTimeout(() => pinOnComplete && pinOnComplete(valor), 120);
         }
     };
 
-    window.selecionarPerfil = function(nome) {
-        document.getElementById('lista-perfis-login').classList.add('hidden');
-        document.getElementById('login-pass-area').classList.remove('hidden');
-        document.getElementById('login-nome-selected').textContent = nome;
-        perfilLogado = nome;
-        document.getElementById('login-pass').focus();
+    window.pinApagar = function() {
+        pinBuffer = pinBuffer.slice(0, -1);
+        document.querySelectorAll('.pin-dot').forEach((dot, i) => {
+            const preenchido = i < pinBuffer.length;
+            dot.classList.toggle('bg-amber-500', preenchido);
+            dot.classList.toggle('border-amber-500', preenchido);
+        });
     };
 
-    window.cancelarLogin = function() {
-        document.getElementById('lista-perfis-login').classList.remove('hidden');
-        document.getElementById('login-pass-area').classList.add('hidden');
-        perfilLogado = null;
+    // Feedback de PIN incorreto: pisca vermelho e reseta o buffer.
+    function pinErro(onRetry) {
+        const dots = document.querySelectorAll('.pin-dot');
+        dots.forEach(d => d.classList.add('border-red-500'));
+        if (navigator.vibrate) navigator.vibrate(200);
+        setTimeout(() => {
+            pinBuffer = '';
+            onRetry && onRetry();
+        }, 450);
+    }
+
+    window.renderLogin = function() {
+        const container = document.getElementById('login-form');
+        if (perfis.length === 0) {
+            // Primeiro acesso: só pergunta o nome.
+            container.innerHTML = `
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-[10px] text-gray-500 uppercase tracking-widest ml-2">Como podemos te chamar?</label>
+                        <input id="new-perfil-nome" placeholder="Ex: Gabriel" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none">
+                    </div>
+                    <button onclick="onboardingNomeContinuar()" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">Continuar</button>
+                </div>
+            `;
+        } else {
+            // Só existe um perfil por aparelho: ou pede o PIN, ou entra direto.
+            const p = perfis[0];
+            perfilLogado = p.nome;
+            if (p.senhaAtiva && p.pin) {
+                mostrarPinDesbloqueio(p);
+            } else {
+                logarSucesso();
+            }
+        }
     };
 
-    window.criarPerfil = function() {
-        const nome = document.getElementById('new-perfil-nome').value;
-        const pass = document.getElementById('new-perfil-pass').value;
-        if (!nome || !pass) return;
-        
+    function mostrarPinDesbloqueio(p) {
+        const container = document.getElementById('login-form');
+        renderPinPad(container, `Olá, ${p.nome}`, 'Digite seu PIN para entrar', (pin) => {
+            if (pin === p.pin) {
+                logarSucesso();
+            } else {
+                mostrarToast('PIN incorreto');
+                pinErro(() => mostrarPinDesbloqueio(p));
+            }
+        });
+    }
+
+    window.onboardingNomeContinuar = function() {
+        const nome = document.getElementById('new-perfil-nome').value.trim();
+        if (!nome) return alert('Digite seu nome');
+        onboardingNomeTemp = nome;
+        mostrarEtapaSenhaOnboarding();
+    };
+
+    function mostrarEtapaSenhaOnboarding() {
+        const container = document.getElementById('login-form');
+        container.innerHTML = `
+            <div class="space-y-4 text-center">
+                <h3 class="text-lg font-bold">Proteger o app com PIN?</h3>
+                <p class="text-xs text-gray-500">Um PIN de 4 números protege o acesso ao abrir o app. Dá pra mudar isso depois em Configurações.</p>
+                <div class="grid grid-cols-1 gap-3 pt-2">
+                    <button onclick="onboardingEscolherSenha(true)" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl active:scale-95 transition-transform">Sim, quero um PIN</button>
+                    <button onclick="onboardingEscolherSenha(false)" class="w-full bg-white/5 text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform">Não, entrar direto</button>
+                </div>
+            </div>
+        `;
+    }
+
+    window.onboardingEscolherSenha = function(querPin) {
+        if (!querPin) {
+            criarPerfilFinal(false, null);
+            return;
+        }
+        onboardingCriarPin();
+    };
+
+    function onboardingCriarPin() {
+        const container = document.getElementById('login-form');
+        renderPinPad(container, 'Crie seu PIN', 'Escolha 4 números', (pin1) => {
+            renderPinPad(container, 'Confirme seu PIN', 'Digite novamente para confirmar', (pin2) => {
+                if (pin1 === pin2) {
+                    criarPerfilFinal(true, pin1);
+                } else {
+                    mostrarToast('Os PINs não coincidem, tente de novo');
+                    onboardingCriarPin();
+                }
+            });
+        });
+    }
+
+    function criarPerfilFinal(senhaAtiva, pin) {
         // Categorias padrão com limites zerados
         const categoriasPadrao = [
             { id: 1, nome: 'Alimentação', icone: '🍎', limite: 0 },
@@ -147,28 +216,20 @@
             { id: 7, nome: 'Outros', icone: '📦', limite: 0 }
         ];
 
-        perfis.push({ 
-            nome, 
-            pass, 
-            contas: [], 
-            cartoes: [], 
-            transacoes: [], 
+        perfis.push({
+            nome: onboardingNomeTemp,
+            senhaAtiva,
+            pin,
+            contas: [],
+            cartoes: [],
+            transacoes: [],
             metas: [],
             categorias: categoriasPadrao
         });
+        perfilLogado = onboardingNomeTemp;
         salvarPerfis();
-        renderLogin();
-    };
-
-    window.fazerLogin = function() {
-        const pass = document.getElementById('login-pass').value;
-        const p = perfis.find(x => x.nome === perfilLogado);
-        if (p && p.pass === pass) {
-            logarSucesso();
-        } else {
-            alert('Senha incorreta');
-        }
-    };
+        logarSucesso();
+    }
 
     function logarSucesso() {
         document.getElementById('login-screen').classList.add('hidden');
@@ -177,13 +238,6 @@
         renderPessoal();
         verificarNotificacoes();
     }
-
-    window.tentarBiometria = async function() {
-        if (!window.PublicKeyCredential) return alert('Biometria não suportada');
-        if (confirm('Deseja entrar usando Biometria?')) {
-            logarSucesso();
-        }
-    };
 
     function verificarNotificacoes() {
         const p = perfil();
@@ -222,10 +276,74 @@
         salvarCompart(); renderCompart();
     };
 
+    // "Sair" agora bloqueia o app (pede o PIN de novo), já que só existe 1 perfil por aparelho.
     window.logout = function() {
-        perfilLogado = null;
         updateUIState('login');
         renderLogin();
+    };
+
+    // --- SEGURANÇA (PIN) ---
+    function abrirModalPin(titulo, subtitulo, onComplete) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        renderPinPad(content, titulo, subtitulo, onComplete);
+    }
+
+    function abrirFluxoCriarPin(onFinalizado) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        renderPinPad(content, 'Crie um novo PIN', 'Escolha 4 números', (pin1) => {
+            renderPinPad(content, 'Confirme o novo PIN', 'Digite novamente para confirmar', (pin2) => {
+                if (pin1 === pin2) {
+                    onFinalizado(pin1);
+                } else {
+                    mostrarToast('Os PINs não coincidem, tente de novo');
+                    abrirFluxoCriarPin(onFinalizado);
+                }
+            });
+        });
+    }
+
+    window.toggleSenhaAtiva = function() {
+        const p = perfil();
+        if (p.senhaAtiva) {
+            abrirModalPin('Confirme seu PIN atual', 'Digite o PIN para desativar o bloqueio', (pin) => {
+                if (pin === p.pin) {
+                    p.senhaAtiva = false;
+                    p.pin = null;
+                    salvarPerfis(); closeModal(); abrirMenu();
+                    mostrarToast('Bloqueio por PIN desativado');
+                } else {
+                    mostrarToast('PIN incorreto');
+                    closeModal();
+                }
+            });
+        } else {
+            abrirFluxoCriarPin((novoPin) => {
+                p.senhaAtiva = true;
+                p.pin = novoPin;
+                salvarPerfis(); closeModal(); abrirMenu();
+                mostrarToast('Bloqueio por PIN ativado');
+            });
+        }
+    };
+
+    window.iniciarAlterarPin = function() {
+        const p = perfil();
+        abrirModalPin('Confirme seu PIN atual', 'Digite o PIN atual para continuar', (pinAtual) => {
+            if (pinAtual !== p.pin) {
+                mostrarToast('PIN incorreto');
+                closeModal();
+                return;
+            }
+            abrirFluxoCriarPin((novoPin) => {
+                p.pin = novoPin;
+                salvarPerfis(); closeModal();
+                mostrarToast('PIN alterado com sucesso');
+            });
+        });
     };
 
     window.abrirMenu = function() {
@@ -262,13 +380,34 @@
                             <p class="text-[10px] text-gray-500">Definir tetos de gastos mensais</p>
                         </div>
                     </button>
+
+                    <div class="w-full card-premium p-4 rounded-2xl flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <span class="text-xl">🔒</span>
+                            <div class="text-left">
+                                <p class="font-bold text-sm">Bloqueio por PIN</p>
+                                <p class="text-[10px] text-gray-500">${p.senhaAtiva ? 'Ativado' : 'Desativado'}</p>
+                            </div>
+                        </div>
+                        <button onclick="toggleSenhaAtiva()" class="w-12 h-7 rounded-full relative transition-all shrink-0 ${p.senhaAtiva ? 'bg-amber-500' : 'bg-white/10'}">
+                            <span class="absolute top-1 ${p.senhaAtiva ? 'right-1' : 'left-1'} w-5 h-5 bg-white rounded-full transition-all"></span>
+                        </button>
+                    </div>
+                    ${p.senhaAtiva ? `
+                    <button onclick="iniciarAlterarPin()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">🔑</span>
+                        <div class="text-left">
+                            <p class="font-bold text-sm">Alterar PIN</p>
+                            <p class="text-[10px] text-gray-500">Definir um novo PIN de acesso</p>
+                        </div>
+                    </button>
                     <button onclick="logout()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4 text-red-400">
                         <span class="text-xl">🚪</span>
                         <div class="text-left">
-                            <p class="font-bold text-sm">Sair do Perfil</p>
-                            <p class="text-[10px] text-red-400/50">Encerrar sessão atual</p>
+                            <p class="font-bold text-sm">Bloquear App</p>
+                            <p class="text-[10px] text-red-400/50">Exigir o PIN para acessar novamente</p>
                         </div>
-                    </button>
+                    </button>` : ''}
                 </div>
                 
                 <button onclick="voltarParaApp()" class="w-full glass py-4 rounded-2xl text-gray-500 text-sm font-bold uppercase tracking-widest">Fechar Menu</button>
@@ -279,11 +418,6 @@
         document.getElementById('detalhe-conteudo').innerHTML = html;
         document.getElementById('btn-voltar').classList.remove('hidden');
         document.getElementById('subtitulo-header').textContent = 'Opções';
-    };
-
-    window.novoPerfil = function() {
-        perfis = [];
-        renderLogin();
     };
 
     // --- PESSOAL ---

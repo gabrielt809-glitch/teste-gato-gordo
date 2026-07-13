@@ -1003,13 +1003,25 @@
         const t = p.transacoes.find(x => x.id === id);
         if (!t) return;
 
+        let removidas = [];
         if (modo === 'apenas') {
+            removidas = p.transacoes.filter(x => x.id === id);
             p.transacoes = p.transacoes.filter(x => x.id !== id);
         } else if (modo === 'proximas') {
+            removidas = p.transacoes.filter(x => x.serieId === t.serieId && new Date(x.data) >= new Date(t.data));
             p.transacoes = p.transacoes.filter(x => x.serieId !== t.serieId || new Date(x.data) < new Date(t.data));
         } else if (modo === 'todas') {
+            removidas = p.transacoes.filter(x => x.serieId === t.serieId);
             p.transacoes = p.transacoes.filter(x => x.serieId !== t.serieId);
         }
+
+        // Toda transação de cartão excluída devolve o valor ao limite disponível daquele cartão.
+        removidas.forEach(x => {
+            if (x.cartaoId) {
+                const cartao = p.cartoes.find(c => c.id === x.cartaoId);
+                if (cartao) cartao.utilizado = Math.max(0, (cartao.utilizado || 0) - x.valor);
+            }
+        });
 
         salvarPessoal();
         renderPessoal();
@@ -1261,6 +1273,19 @@
 
     let pendingTransacaoValores = null;
 
+    // Ajusta o limite utilizado do cartão quando uma transação existente é editada:
+    // devolve o valor antigo e cobra o valor novo (cobre também troca de cartão, se acontecer).
+    function ajustarUtilizadoCartao(p, cartaoIdAntigo, valorAntigo, cartaoIdNovo, valorNovo) {
+        if (cartaoIdAntigo) {
+            const cAntigo = p.cartoes.find(c => c.id === cartaoIdAntigo);
+            if (cAntigo) cAntigo.utilizado = Math.max(0, (cAntigo.utilizado || 0) - (valorAntigo || 0));
+        }
+        if (cartaoIdNovo) {
+            const cNovo = p.cartoes.find(c => c.id === cartaoIdNovo);
+            if (cNovo) cNovo.utilizado = (cNovo.utilizado || 0) + (valorNovo || 0);
+        }
+    }
+
     window.salvarTransacaoAcao = function(editId, modo, valoresParam) {
         const p = perfil();
         const t = p.transacoes.find(x => x.id === editId);
@@ -1273,16 +1298,19 @@
         const { tipo, descricao, valor, data, contaId, cartaoId, contaDestinoId, categoria } = v;
 
         if (modo === 'apenas') {
+            ajustarUtilizadoCartao(p, t.cartaoId, t.valor, cartaoId, valor);
             Object.assign(t, { tipo, descricao, valor, data, contaId, cartaoId, contaDestinoId, categoria });
         } else if (modo === 'proximas') {
             p.transacoes.forEach(x => {
                 if (x.serieId === t.serieId && new Date(x.data) >= new Date(t.data)) {
+                    ajustarUtilizadoCartao(p, x.cartaoId, x.valor, cartaoId, valor);
                     Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId, categoria });
                 }
             });
         } else if (modo === 'todas') {
             p.transacoes.forEach(x => {
                 if (x.serieId === t.serieId) {
+                    ajustarUtilizadoCartao(p, x.cartaoId, x.valor, cartaoId, valor);
                     Object.assign(x, { tipo, descricao, valor, contaId, cartaoId, contaDestinoId, categoria });
                 }
             });
@@ -1380,7 +1408,8 @@
                         descricao: isParcelado ? `${descricao} (${i+1}/${numParcelas})` : descricao,
                         valor: valorParcela,
                         data: novaData.toISOString().split('T')[0],
-                        cartaoId: cartaoId
+                        cartaoId: cartaoId,
+                        categoria: document.getElementById('f-trans-categoria')?.value
                     });
             }
         } else {

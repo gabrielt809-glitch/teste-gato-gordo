@@ -772,7 +772,7 @@
         mostrarToast('Transação excluída com sucesso');
     };
 
-    window.openModal = function(tipo, editId = null, contaPreSelecionada = null, cartaoPreSelecionado = null) {
+    window.openModal = function(tipo, editId = null, contaPreSelecionada = null, cartaoPreSelecionado = null, tipoTransacaoInicial = null) {
       const modal = document.getElementById('modal');
       const content = document.getElementById('modal-content-inner');
       modal.classList.remove('hidden');
@@ -780,7 +780,7 @@
       else if (tipo === 'cartao') formCartao(content, editId);
       else if (tipo === 'pessoa') formPessoa(content, editId);
       else if (tipo === 'conta-compartilhada') formContaCompart(content, editId);
-      else if (tipo === 'transacao') formTransacao(content, editId, contaPreSelecionada, cartaoPreSelecionado);
+      else if (tipo === 'transacao') formTransacao(content, editId, contaPreSelecionada, cartaoPreSelecionado, tipoTransacaoInicial);
       else if (tipo === 'meta') formMeta(content, editId);
     };
     window.closeModal = function() { document.getElementById('modal').classList.add('hidden'); };
@@ -891,22 +891,41 @@
         salvarPessoal(); renderPessoal(); closeModal();
     };
 
-    function formTransacao(content, editId, contaPre, cartaoPre) {
+    function formTransacao(content, editId, contaPre, cartaoPre, tipoInicial) {
         const p = perfil();
-        const t = editId !== null ? p.transacoes.find(x => x.id === editId) : { tipo: cartaoPre ? 'cartao' : 'despesa', valor: 0, descricao: '', data: new Date().toISOString().split('T')[0], contaId: contaPre || (p.contas[0]?.id || ''), recorrencia: 'nenhuma' };
+        // Contexto: de onde o modal foi aberto, para adaptar o formulário e não oferecer opções sem sentido.
+        // - 'cartao': aberto pelo FAB da tela de um cartão específico -> é sempre um lançamento de cartão, nesse cartão.
+        // - 'conta':  aberto pelo FAB da tela de uma conta específica -> nunca é um lançamento de cartão.
+        // - 'livre':  aberto pelo FAB da home ou pelo "+ Nova" da lista de transações -> todas as opções fazem sentido.
+        const contexto = editId !== null ? 'livre' : (cartaoPre ? 'cartao' : (contaPre ? 'conta' : 'livre'));
+
+        const tipoPadrao = tipoInicial || (contexto === 'cartao' ? 'cartao' : 'despesa');
+        const t = editId !== null
+            ? p.transacoes.find(x => x.id === editId)
+            : { tipo: tipoPadrao, valor: 0, descricao: '', data: new Date().toISOString().split('T')[0], contaId: contaPre || (p.contas[0]?.id || ''), recorrencia: 'nenhuma' };
+
+        const opcoesTipo = [
+            { valor: 'despesa', label: 'Despesa' },
+            { valor: 'receita', label: 'Receita' },
+            { valor: 'transferencia', label: 'Transferência' },
+            { valor: 'cartao', label: 'Cartão de Crédito' },
+        ].filter(op => contexto !== 'conta' || op.valor !== 'cartao'); // na tela de conta, cartão não faz sentido
+
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-4">${editId !== null ? 'Editar' : 'Nova'} Transação</h3>
             <div class="space-y-3">
                 <div class="grid grid-cols-2 gap-3">
-                    <div>
+                    <div id="f-trans-tipo-group" class="${contexto === 'cartao' ? 'hidden' : ''}">
                         <label class="text-xs text-gray-400">Tipo</label>
                         <select id="f-trans-tipo" class="w-full p-3 rounded-xl" onchange="toggleTransDestino()">
-                            <option value="despesa" ${t.tipo==='despesa'?'selected':''}>Despesa</option>
-                            <option value="receita" ${t.tipo==='receita'?'selected':''}>Receita</option>
-                            <option value="transferencia" ${t.tipo==='transferencia'?'selected':''}>Transferência</option>
-                            <option value="cartao" ${t.tipo==='cartao'?'selected':''}>Cartão de Crédito</option>
+                            ${opcoesTipo.map(op => `<option value="${op.valor}" ${t.tipo===op.valor?'selected':''}>${op.label}</option>`).join('')}
                         </select>
                     </div>
+                    ${contexto === 'cartao' ? `
+                    <div>
+                        <label class="text-xs text-gray-400">Tipo</label>
+                        <div class="w-full p-3 rounded-xl bg-white/5 text-sm">💳 Cartão de Crédito</div>
+                    </div>` : ''}
                     <div>
                         <label class="text-xs text-gray-400">Recorrência</label>
                         <select id="f-trans-recorrencia" class="w-full p-3 rounded-xl" onchange="toggleParcelas()">
@@ -952,6 +971,7 @@
                         ${p.cartoes.map(c => `<option value="${c.id}" ${c.id==cartaoPre?'selected':''}>${c.nome}</option>`).join('')}
                     </select>
                 </div>
+                ${contexto === 'cartao' ? `<p class="text-xs text-gray-500 -mt-2">💳 Lançamento na fatura de <strong>${p.cartoes.find(c => c.id === cartaoPre)?.nome || ''}</strong></p>` : ''}
                 <div id="f-trans-dest-group" class="hidden">
                     <label class="text-xs text-gray-400">Conta Destino</label>
                     <select id="f-trans-conta-dest" class="w-full p-3 rounded-xl">
@@ -962,10 +982,10 @@
             </div>
         `;
         window.toggleTransDestino = function() {
-            const tipo = document.getElementById('f-trans-tipo').value;
+            const tipo = contexto === 'cartao' ? 'cartao' : document.getElementById('f-trans-tipo').value;
             document.getElementById('f-trans-dest-group').classList.toggle('hidden', tipo !== 'transferencia');
             document.getElementById('f-trans-conta-group').classList.toggle('hidden', tipo === 'cartao');
-            document.getElementById('f-trans-cartao-group').classList.toggle('hidden', tipo !== 'cartao');
+            document.getElementById('f-trans-cartao-group').classList.toggle('hidden', tipo !== 'cartao' || contexto === 'cartao');
         };
         window.toggleParcelas = function() {
             const rec = document.getElementById('f-trans-recorrencia').value;
@@ -1542,45 +1562,8 @@
 
     window.fabAction = function(tipo) {
         toggleFabMenu(); // Fecha o menu
-        
-        if (tipo === 'receita') {
-            openModal('transacao');
-            setTimeout(() => {
-                const select = document.getElementById('f-t-tipo');
-                if (select) {
-                    select.value = 'receita';
-                    // Dispara evento de mudança para atualizar cores se necessário
-                    select.dispatchEvent(new Event('change'));
-                }
-            }, 50);
-        } else if (tipo === 'despesa') {
-            openModal('transacao');
-            setTimeout(() => {
-                const select = document.getElementById('f-t-tipo');
-                if (select) {
-                    select.value = 'despesa';
-                    select.dispatchEvent(new Event('change'));
-                }
-            }, 50);
-        } else if (tipo === 'cartao') {
-            openModal('transacao');
-            setTimeout(() => {
-                const select = document.getElementById('f-t-tipo');
-                if (select) {
-                    select.value = 'cartao';
-                    select.dispatchEvent(new Event('change'));
-                }
-            }, 50);
-        } else if (tipo === 'transferencia') {
-            openModal('transacao');
-            setTimeout(() => {
-                const select = document.getElementById('f-t-tipo');
-                if (select) {
-                    select.value = 'transferencia';
-                    select.dispatchEvent(new Event('change'));
-                }
-            }, 50);
-        }
+        // Abre o modal de transação já com o tipo certo pré-selecionado (Receita, Despesa, Cartão ou Transferência)
+        openModal('transacao', null, null, null, tipo);
     };
 
     // Início

@@ -2,6 +2,12 @@
     let perfis = JSON.parse(localStorage.getItem('gato_gordo_perfis') || '[]');
     let perfilLogado = null;
     let telaAtual = 'pessoal';
+
+    // --- Sincronização Compartilhada (Google Sheets via Apps Script) ---
+    let syncUrl = localStorage.getItem('gato_gordo_sync_url') || 'https://script.google.com/macros/s/AKfycbyS7pjLcrMj9pnJjfw_uwqFsGCY468_qUN3-k9CinkJ1thGZYNryo_rgcH9u5UxUe6nbw/exec';
+    let syncUltimoTimestamp = parseInt(localStorage.getItem('gato_gordo_sync_ts') || '0', 10);
+    let syncIntervalId = null;
+    let syncEmAndamento = false;
     
     // Função Centralizada para Controle de UI
     function updateUIState(novaTela) {
@@ -54,7 +60,108 @@
     const dadosCompart = JSON.parse(localStorage.getItem('gato_gordo_compart') || '{"pessoas":[], "contas":[]}');
 
     function salvarPerfis() { localStorage.setItem('gato_gordo_perfis', JSON.stringify(perfis)); }
-    function salvarCompart() { localStorage.setItem('gato_gordo_compart', JSON.stringify(dadosCompart)); }
+    function salvarCompart() {
+        localStorage.setItem('gato_gordo_compart', JSON.stringify(dadosCompart));
+        syncEnviar();
+    }
+
+    // Envia o estado atual da aba Compartilhada pra planilha.
+    async function syncEnviar() {
+        if (!syncUrl) return;
+        try {
+            const resp = await fetch(syncUrl, { method: 'POST', body: JSON.stringify({ dados: dadosCompart }) });
+            const json = await resp.json();
+            if (json && json.timestamp) {
+                syncUltimoTimestamp = json.timestamp;
+                localStorage.setItem('gato_gordo_sync_ts', String(syncUltimoTimestamp));
+            }
+        } catch (e) {
+            console.warn('Falha ao sincronizar (enviar):', e);
+        }
+    }
+
+    // Confere se tem algo mais novo na planilha e, se tiver, baixa e atualiza a tela.
+    async function syncVerificarEBaixar(forcar) {
+        if (!syncUrl || syncEmAndamento) return;
+        syncEmAndamento = true;
+        try {
+            const respTs = await fetch(`${syncUrl}?acao=timestamp`);
+            const jsonTs = await respTs.json();
+            const remoto = jsonTs.timestamp || 0;
+            if (forcar || remoto > syncUltimoTimestamp) {
+                const resp = await fetch(syncUrl);
+                const json = await resp.json();
+                const novosDados = JSON.parse(json.dados || '{}');
+                if (novosDados && (novosDados.pessoas || novosDados.contas)) {
+                    dadosCompart.pessoas = novosDados.pessoas || [];
+                    dadosCompart.contas = novosDados.contas || [];
+                    if (novosDados.regra) dadosCompart.regra = novosDados.regra;
+                    localStorage.setItem('gato_gordo_compart', JSON.stringify(dadosCompart));
+                }
+                syncUltimoTimestamp = json.timestamp || remoto;
+                localStorage.setItem('gato_gordo_sync_ts', String(syncUltimoTimestamp));
+                if (telaAtual === 'compartilhado') renderCompart();
+            }
+        } catch (e) {
+            console.warn('Falha ao sincronizar (baixar):', e);
+        } finally {
+            syncEmAndamento = false;
+        }
+    }
+
+    function iniciarPollingSync() {
+        if (!syncUrl || syncIntervalId) return;
+        syncVerificarEBaixar(false);
+        syncIntervalId = setInterval(() => syncVerificarEBaixar(false), 7000);
+    }
+
+    function pararPollingSync() {
+        if (syncIntervalId) { clearInterval(syncIntervalId); syncIntervalId = null; }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) pararPollingSync();
+        else if (telaAtual === 'compartilhado') iniciarPollingSync();
+    });
+
+    window.abrirConfigSync = function() {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-2">Sincronização Compartilhada</h3>
+            <p class="text-xs text-gray-500 mb-4">Cole aqui o link do Apps Script gerado a partir da planilha do Google Sheets. Esse mesmo link deve ser colado no aparelho da outra pessoa pra sincronizar os dois.</p>
+            <input id="f-sync-url" value="${syncUrl || ''}" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 rounded-xl mb-3 text-xs">
+            <button onclick="salvarConfigSync()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mb-2">Salvar e Sincronizar</button>
+            ${syncUrl ? `
+            <button onclick="copiarLinkConvite()" class="w-full bg-white/5 text-xs font-bold py-3 rounded-xl mb-2">📋 Copiar link para convidar</button>
+            <button onclick="desconectarSync()" class="w-full text-red-400 text-xs font-bold py-3 rounded-xl">Desconectar</button>` : ''}
+        `;
+    };
+
+    window.salvarConfigSync = function() {
+        const url = document.getElementById('f-sync-url').value.trim();
+        if (!url) return;
+        syncUrl = url;
+        localStorage.setItem('gato_gordo_sync_url', url);
+        closeModal();
+        mostrarToast('Sincronização configurada! Buscando dados...');
+        syncVerificarEBaixar(true);
+        if (telaAtual === 'compartilhado') iniciarPollingSync();
+    };
+
+    window.copiarLinkConvite = function() {
+        if (!syncUrl) return;
+        navigator.clipboard.writeText(syncUrl).then(() => mostrarToast('Link copiado! Envie pra quem vai compartilhar com você.'));
+    };
+
+    window.desconectarSync = function() {
+        syncUrl = null;
+        localStorage.removeItem('gato_gordo_sync_url');
+        pararPollingSync();
+        closeModal();
+        mostrarToast('Sincronização desconectada');
+    };
     function perfil() { return perfis.find(p => p.nome === perfilLogado); }
     function salvarPessoal() { salvarPerfis(); }
 
@@ -237,6 +344,7 @@
         updateUIState('pessoal');
         renderPessoal();
         verificarNotificacoes();
+        syncVerificarEBaixar(false);
     }
 
     function verificarNotificacoes() {
@@ -408,6 +516,14 @@
                             <p class="text-[10px] text-red-400/50">Exigir o PIN para acessar novamente</p>
                         </div>
                     </button>` : ''}
+
+                    <button onclick="abrirConfigSync()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">🔗</span>
+                        <div class="text-left">
+                            <p class="font-bold text-sm">Sincronização Compartilhada</p>
+                            <p class="text-[10px] text-gray-500">${syncUrl ? 'Conectado' : 'Não configurado'}</p>
+                        </div>
+                    </button>
                 </div>
                 
                 <button onclick="voltarParaApp()" class="w-full glass py-4 rounded-2xl text-gray-500 text-sm font-bold uppercase tracking-widest">Fechar Menu</button>
@@ -651,12 +767,14 @@
             if (btnPessoal) { btnPessoal.classList.add('tab-active'); btnPessoal.classList.remove('text-gray-400'); }
             if (btnCompart) { btnCompart.classList.remove('tab-active'); btnCompart.classList.add('text-gray-400'); }
             renderPessoal();
+            pararPollingSync();
         } else {
             if (tabCompart) tabCompart.classList.remove('hidden');
             if (tabPessoal) tabPessoal.classList.add('hidden');
             if (btnCompart) { btnCompart.classList.add('tab-active'); btnCompart.classList.remove('text-gray-400'); }
             if (btnPessoal) { btnPessoal.classList.remove('tab-active'); btnPessoal.classList.add('text-gray-400'); }
             renderCompart();
+            iniciarPollingSync();
         }
     };
 

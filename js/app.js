@@ -1007,20 +1007,19 @@
         }
     }
 
-    window.salvarTransacaoAcao = function(editId, modo) {
+    let pendingTransacaoValores = null;
+
+    window.salvarTransacaoAcao = function(editId, modo, valoresParam) {
         const p = perfil();
         const t = p.transacoes.find(x => x.id === editId);
         if (!t) return;
 
-        const tipo = document.getElementById('f-trans-tipo').value;
-        const descricao = document.getElementById('f-trans-desc').value;
-        const valor = parseFloat(document.getElementById('f-trans-valor').value) || 0;
-        const data = document.getElementById('f-trans-data').value;
-        const contaId = parseInt(document.getElementById('f-trans-conta').value);
-        const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);
-        const contaDestinoId = parseInt(document.getElementById('f-trans-conta-dest').value);
+        // Os campos do formulário já podem não existir mais (a tela de escolha de recorrência
+        // substitui o conteúdo do modal), então usamos os valores capturados antes dessa troca.
+        const v = valoresParam || pendingTransacaoValores;
+        if (!v) return;
+        const { tipo, descricao, valor, data, contaId, cartaoId, contaDestinoId, categoria } = v;
 
-        const categoria = document.getElementById('f-trans-categoria').value;
         if (modo === 'apenas') {
             Object.assign(t, { tipo, descricao, valor, data, contaId, cartaoId, contaDestinoId, categoria });
         } else if (modo === 'proximas') {
@@ -1037,6 +1036,7 @@
             });
         }
 
+        pendingTransacaoValores = null;
         salvarPessoal(); renderPessoal(); closeModal();
         atualizarTelaDetalheAposSalvar(contaId, cartaoId);
         mostrarToast('Alterações salvas com sucesso');
@@ -1055,6 +1055,13 @@
         if (editId) {
             const t = p.transacoes.find(x => x.id === editId);
             if (t && t.serieId) {
+                pendingTransacaoValores = {
+                    tipo, descricao, valor: valorTotal, data: dataStr,
+                    contaId: parseInt(document.getElementById('f-trans-conta')?.value),
+                    cartaoId: parseInt(document.getElementById('f-trans-cartao')?.value),
+                    contaDestinoId: parseInt(document.getElementById('f-trans-conta-dest')?.value),
+                    categoria: document.getElementById('f-trans-categoria')?.value,
+                };
                 const html = `
                     <div class="space-y-6">
                         <div class="text-center">
@@ -1084,7 +1091,13 @@
                 document.getElementById('modal-content-inner').innerHTML = html;
                 return;
             } else if (t) {
-                salvarTransacaoAcao(editId, 'apenas');
+                salvarTransacaoAcao(editId, 'apenas', {
+                    tipo, descricao, valor: valorTotal, data: dataStr,
+                    contaId: parseInt(document.getElementById('f-trans-conta')?.value),
+                    cartaoId: parseInt(document.getElementById('f-trans-cartao')?.value),
+                    contaDestinoId: parseInt(document.getElementById('f-trans-conta-dest')?.value),
+                    categoria: document.getElementById('f-trans-categoria')?.value,
+                });
                 return;
             }
         }
@@ -1332,14 +1345,16 @@
             </div>
         `;
     }
-    window.salvarContaCompartAcao = function(editId, modo) {
+    let pendingContaCompartValores = null;
+    window.salvarContaCompartAcao = function(editId, modo, valoresParam) {
         const c = dadosCompart.contas.find(x => x.id === editId);
         if (!c) return;
 
-        const tipo = document.getElementById('f-comp-tipo').value;
-        const descricao = document.getElementById('f-comp-desc').value;
-        const valorTotal = parseFloat(document.getElementById('f-comp-valor').value) || 0;
-        const data = document.getElementById('f-comp-data').value;
+        // Os campos do formulário já podem não existir mais (a tela de escolha de recorrência
+        // substitui o conteúdo do modal), então usamos os valores capturados antes dessa troca.
+        const v = valoresParam || pendingContaCompartValores;
+        if (!v) return;
+        const { tipo, descricao, valorTotal, data } = v;
         const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
 
         if (modo === 'apenas') {
@@ -1358,6 +1373,7 @@
             });
         }
 
+        pendingContaCompartValores = null;
         salvarCompart(); renderCompart(); closeModal();
         mostrarToast('Alterações salvas com sucesso');
     };
@@ -1374,6 +1390,7 @@
         if (editId) {
             const c = dadosCompart.contas.find(x => x.id === editId);
             if (c && c.serieId) {
+                pendingContaCompartValores = { tipo, descricao, valorTotal, data: dataStr };
                 const html = `
                     <div class="space-y-6">
                         <div class="text-center">
@@ -1403,7 +1420,7 @@
                 document.getElementById('modal-content-inner').innerHTML = html;
                 return;
             } else if (c) {
-                salvarContaCompartAcao(editId, 'apenas');
+                salvarContaCompartAcao(editId, 'apenas', { tipo, descricao, valorTotal, data: dataStr });
                 return;
             }
         }

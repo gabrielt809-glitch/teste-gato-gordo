@@ -994,6 +994,19 @@
         setTimeout(() => { toggleTransDestino(); toggleParcelas(); }, 0);
     }
 
+    // Se o usuário estiver dentro da tela de uma conta ou de um cartão quando salva uma transação,
+    // reabre essa tela pra refletir o novo lançamento na hora (sem precisar navegar de mês pra "forçar" o refresh).
+    function atualizarTelaDetalheAposSalvar(contaId, cartaoId) {
+        const p = perfil();
+        if (telaAtual === 'detalhe-conta' && contaId) {
+            const idx = p.contas.findIndex(c => c.id === contaId);
+            if (idx !== -1) abrirTelaConta(idx);
+        } else if (telaAtual === 'detalhe-cartao' && cartaoId) {
+            const idx = p.cartoes.findIndex(c => c.id === cartaoId);
+            if (idx !== -1) abrirTelaCartao(idx);
+        }
+    }
+
     window.salvarTransacaoAcao = function(editId, modo) {
         const p = perfil();
         const t = p.transacoes.find(x => x.id === editId);
@@ -1025,6 +1038,7 @@
         }
 
         salvarPessoal(); renderPessoal(); closeModal();
+        atualizarTelaDetalheAposSalvar(contaId, cartaoId);
         mostrarToast('Alterações salvas com sucesso');
     };
 
@@ -1075,8 +1089,12 @@
             }
         }
 
+        let contaIdSalva = null;
+        let cartaoIdSalvo = null;
+
         if (tipo === 'cartao') {
             const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);
+            cartaoIdSalvo = cartaoId;
             const cartaoIdx = p.cartoes.findIndex(c => c.id === cartaoId);
             const cartao = p.cartoes[cartaoIdx];
             const isParcelado = recorrencia === 'parcelado';
@@ -1102,6 +1120,7 @@
             }
         } else {
             const contaId = parseInt(document.getElementById('f-trans-conta').value);
+            contaIdSalva = contaId;
             const contaDestinoId = tipo === 'transferencia' ? parseInt(document.getElementById('f-trans-conta-dest').value) : null;
             
             if (recorrencia !== 'nenhuma') {
@@ -1144,13 +1163,7 @@
         }
         
         salvarPessoal(); renderPessoal(); closeModal();
-        if (telaAtual === 'detalhe-cartao') {
-            const cartaoId = parseInt(document.getElementById('f-trans-cartao')?.value);
-            if (cartaoId) {
-                const idx = p.cartoes.findIndex(c => c.id === cartaoId);
-                if (idx !== -1) abrirTelaCartao(idx);
-            }
-        }
+        atualizarTelaDetalheAposSalvar(contaIdSalva, cartaoIdSalvo);
     };
 
     // --- COMPARTILHADO ---

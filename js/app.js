@@ -7,7 +7,6 @@
 
     // --- Sincronização Compartilhada (Google Sheets via Apps Script) ---
     let syncUrl = localStorage.getItem('gato_gordo_sync_url') || 'https://script.google.com/macros/s/AKfycbyS7pjLcrMj9pnJjfw_uwqFsGCY468_qUN3-k9CinkJ1thGZYNryo_rgcH9u5UxUe6nbw/exec';
-    let syncUltimoTimestamp = parseInt(localStorage.getItem('gato_gordo_sync_ts') || '0', 10);
     let syncIntervalId = null;
     let syncEmAndamento = false;
     
@@ -63,49 +62,83 @@
     let anoRefCompart = new Date().getFullYear();
     let myChart = null;
 
-    const dadosCompart = JSON.parse(localStorage.getItem('gato_gordo_compart') || '{"pessoas":[], "contas":[]}');
+    // --- Grupos Compartilhados (múltiplos, independentes entre si) ---
+    // Cada grupo tem: id (código curto pra convite), nome, pessoas, contas, regra.
+    let gruposCompart = JSON.parse(localStorage.getItem('gato_gordo_grupos') || 'null');
+    if (!gruposCompart) {
+        // Migração: quem já usava a versão com um único grupo compartilhado vira o primeiro grupo.
+        const antigo = JSON.parse(localStorage.getItem('gato_gordo_compart') || 'null');
+        gruposCompart = [{
+            id: gerarIdGrupo(),
+            nome: 'Compartilhado',
+            pessoas: (antigo && antigo.pessoas) || [],
+            contas: (antigo && antigo.contas) || [],
+            regra: (antigo && antigo.regra) || 'proporcional'
+        }];
+    }
+    let grupoAtivoId = localStorage.getItem('gato_gordo_grupo_ativo') || (gruposCompart[0] && gruposCompart[0].id) || null;
+    let syncTimestamps = JSON.parse(localStorage.getItem('gato_gordo_sync_ts_map') || '{}');
 
     function salvarPerfis() { localStorage.setItem('gato_gordo_perfis', JSON.stringify(perfis)); }
+
+    function gerarIdGrupo() {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function grupoAtivo() {
+        return gruposCompart.find(g => g.id === grupoAtivoId) || gruposCompart[0];
+    }
+
+    function salvarGrupos() {
+        localStorage.setItem('gato_gordo_grupos', JSON.stringify(gruposCompart));
+    }
+
     function salvarCompart() {
-        localStorage.setItem('gato_gordo_compart', JSON.stringify(dadosCompart));
+        salvarGrupos();
         syncEnviar();
     }
 
-    // Envia o estado atual da aba Compartilhada pra planilha.
+    // Envia o estado do grupo ativo pra planilha (cada grupo fica numa linha própria, identificado pelo id).
     async function syncEnviar() {
-        if (!syncUrl) return;
+        const g = grupoAtivo();
+        if (!syncUrl || !g) return;
         try {
-            const resp = await fetch(syncUrl, { method: 'POST', body: JSON.stringify({ dados: dadosCompart }) });
+            const resp = await fetch(syncUrl, {
+                method: 'POST',
+                body: JSON.stringify({ grupoId: g.id, dados: { nome: g.nome, pessoas: g.pessoas, contas: g.contas, regra: g.regra } })
+            });
             const json = await resp.json();
             if (json && json.timestamp) {
-                syncUltimoTimestamp = json.timestamp;
-                localStorage.setItem('gato_gordo_sync_ts', String(syncUltimoTimestamp));
+                syncTimestamps[g.id] = json.timestamp;
+                localStorage.setItem('gato_gordo_sync_ts_map', JSON.stringify(syncTimestamps));
             }
         } catch (e) {
             console.warn('Falha ao sincronizar (enviar):', e);
         }
     }
 
-    // Confere se tem algo mais novo na planilha e, se tiver, baixa e atualiza a tela.
+    // Confere se tem algo mais novo na planilha pro grupo ativo e, se tiver, baixa e atualiza a tela.
     async function syncVerificarEBaixar(forcar) {
-        if (!syncUrl || syncEmAndamento) return;
+        const g = grupoAtivo();
+        if (!syncUrl || !g || syncEmAndamento) return;
         syncEmAndamento = true;
         try {
-            const respTs = await fetch(`${syncUrl}?acao=timestamp`);
+            const respTs = await fetch(`${syncUrl}?acao=timestamp&grupoId=${g.id}`);
             const jsonTs = await respTs.json();
             const remoto = jsonTs.timestamp || 0;
-            if (forcar || remoto > syncUltimoTimestamp) {
-                const resp = await fetch(syncUrl);
+            const ultimoLocal = syncTimestamps[g.id] || 0;
+            if (forcar || remoto > ultimoLocal) {
+                const resp = await fetch(`${syncUrl}?grupoId=${g.id}`);
                 const json = await resp.json();
                 const novosDados = JSON.parse(json.dados || '{}');
                 if (novosDados && (novosDados.pessoas || novosDados.contas)) {
-                    dadosCompart.pessoas = novosDados.pessoas || [];
-                    dadosCompart.contas = novosDados.contas || [];
-                    if (novosDados.regra) dadosCompart.regra = novosDados.regra;
-                    localStorage.setItem('gato_gordo_compart', JSON.stringify(dadosCompart));
+                    g.pessoas = novosDados.pessoas || [];
+                    g.contas = novosDados.contas || [];
+                    if (novosDados.regra) g.regra = novosDados.regra;
+                    salvarGrupos();
                 }
-                syncUltimoTimestamp = json.timestamp || remoto;
-                localStorage.setItem('gato_gordo_sync_ts', String(syncUltimoTimestamp));
+                syncTimestamps[g.id] = json.timestamp || remoto;
+                localStorage.setItem('gato_gordo_sync_ts_map', JSON.stringify(syncTimestamps));
                 if (telaAtual === 'compartilhado') renderCompart();
             }
         } catch (e) {
@@ -371,6 +404,7 @@
         updateUIState('pessoal');
         renderPessoal();
         verificarNotificacoes();
+        verificarConviteLink();
         syncVerificarEBaixar(false);
     }
 
@@ -397,7 +431,7 @@
     }
 
     window.backupNuvem = function() {
-        const dados = { perfis, compart: dadosCompart };
+        const dados = { perfis, grupos: gruposCompart };
         const blob = new Blob([JSON.stringify(dados)], { type: 'application/json' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -407,7 +441,7 @@
     };
 
     window.mudarRegraCompart = function(regra) {
-        dadosCompart.regra = regra;
+        grupoAtivo().regra = regra;
         salvarCompart(); renderCompart();
     };
 
@@ -1489,21 +1523,141 @@
         atualizarTelaDetalheAposSalvar(contaIdSalva, cartaoIdSalvo);
     };
 
+    function renderChipsGrupos() {
+        const container = document.getElementById('lista-grupos-compart');
+        if (!container) return;
+        container.innerHTML = `
+            ${gruposCompart.map(g => `
+                <button onclick="trocarGrupoCompart('${g.id}')" class="shrink-0 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${g.id === grupoAtivoId ? 'bg-amber-500 text-black' : 'card-premium text-gray-400'}">${g.nome}</button>
+            `).join('')}
+            <button onclick="abrirNovoGrupo()" class="shrink-0 w-9 h-9 rounded-full card-premium text-gray-400 flex items-center justify-center text-lg">+</button>
+            <button onclick="abrirConvidarGrupo()" class="shrink-0 px-3 py-2 rounded-full text-xs font-bold whitespace-nowrap card-premium text-amber-400">🔗 Convidar</button>
+        `;
+    }
+
+    window.trocarGrupoCompart = function(id) {
+        if (id === grupoAtivoId) return;
+        grupoAtivoId = id;
+        localStorage.setItem('gato_gordo_grupo_ativo', id);
+        renderCompart();
+        syncVerificarEBaixar(true);
+    };
+
+    window.abrirNovoGrupo = function() {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-2">Novo Grupo Compartilhado</h3>
+            <p class="text-xs text-gray-500 mb-4">Dê um nome pro grupo (ex: "Eu e Ana", "Casa da minha irmã"). Depois de criado, dá pra convidar outras pessoas por link.</p>
+            <input id="f-novo-grupo-nome" placeholder="Nome do grupo" class="w-full p-3 rounded-xl mb-3">
+            <button onclick="criarNovoGrupo()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl">Criar Grupo</button>
+        `;
+    };
+
+    window.criarNovoGrupo = function() {
+        const nome = document.getElementById('f-novo-grupo-nome').value.trim();
+        if (!nome) return;
+        const novoGrupo = { id: gerarIdGrupo(), nome, pessoas: [], contas: [], regra: 'proporcional' };
+        gruposCompart.push(novoGrupo);
+        salvarGrupos();
+        grupoAtivoId = novoGrupo.id;
+        localStorage.setItem('gato_gordo_grupo_ativo', novoGrupo.id);
+        closeModal();
+        renderCompart();
+        mostrarToast(`Grupo "${nome}" criado!`);
+    };
+
+    window.abrirConvidarGrupo = function() {
+        const g = grupoAtivo();
+        if (!syncUrl) {
+            mostrarToast('Configure a Sincronização em Configurações primeiro');
+            return;
+        }
+        const link = `${location.origin}${location.pathname}?grupo=${g.id}&nome=${encodeURIComponent(g.nome)}`;
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-2">Convidar pro grupo "${g.nome}"</h3>
+            <p class="text-xs text-gray-500 mb-4">Envie esse link pra quem você quer que compartilhe esse grupo com você. A pessoa abre o link e aceita entrar — cada grupo fica separado dos demais.</p>
+            <div class="bg-white/5 rounded-xl p-3 text-xs break-all mb-3">${link}</div>
+            <button onclick="copiarLinkGrupo('${link}')" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mb-2">📋 Copiar Link</button>
+            <button onclick="renomearGrupo('${g.id}')" class="w-full card-premium text-xs font-bold py-3 rounded-xl mb-2">✎ Renomear Grupo</button>
+            ${gruposCompart.length > 1 ? `<button onclick="sairDoGrupo('${g.id}')" class="w-full text-red-400 text-xs font-bold py-3 rounded-xl">Remover este grupo do aparelho</button>` : ''}
+        `;
+    };
+
+    window.copiarLinkGrupo = function(link) {
+        navigator.clipboard.writeText(link).then(() => mostrarToast('Link copiado! Envie pra quem vai compartilhar esse grupo.'));
+    };
+
+    window.renomearGrupo = function(id) {
+        const g = gruposCompart.find(x => x.id === id);
+        if (!g) return;
+        const novoNome = prompt('Novo nome do grupo:', g.nome);
+        if (novoNome && novoNome.trim()) {
+            g.nome = novoNome.trim();
+            salvarGrupos();
+            syncEnviar();
+            closeModal();
+            renderCompart();
+        }
+    };
+
+    window.sairDoGrupo = function(id) {
+        if (gruposCompart.length <= 1) {
+            mostrarToast('Você precisa ter pelo menos um grupo');
+            return;
+        }
+        if (!confirm('Remover este grupo deste aparelho? Os dados continuam salvos pra quem mais estiver nele, só saem daqui.')) return;
+        gruposCompart = gruposCompart.filter(g => g.id !== id);
+        salvarGrupos();
+        if (grupoAtivoId === id) {
+            grupoAtivoId = gruposCompart[0].id;
+            localStorage.setItem('gato_gordo_grupo_ativo', grupoAtivoId);
+        }
+        closeModal();
+        renderCompart();
+    };
+
+    // Se o app foi aberto a partir de um link de convite (?grupo=ID&nome=Nome), pergunta se quer entrar.
+    function verificarConviteLink() {
+        const params = new URLSearchParams(location.search);
+        const grupoId = params.get('grupo');
+        if (!grupoId) return;
+        const nomeGrupo = params.get('nome') ? decodeURIComponent(params.get('nome')) : 'Grupo Compartilhado';
+        window.history.replaceState({}, '', location.pathname);
+        if (gruposCompart.some(g => g.id === grupoId)) {
+            mostrarToast(`Você já faz parte do grupo "${nomeGrupo}"`);
+            return;
+        }
+        if (confirm(`Entrar no grupo compartilhado "${nomeGrupo}"?`)) {
+            gruposCompart.push({ id: grupoId, nome: nomeGrupo, pessoas: [], contas: [], regra: 'proporcional' });
+            grupoAtivoId = grupoId;
+            localStorage.setItem('gato_gordo_grupo_ativo', grupoId);
+            salvarGrupos();
+            mostrarToast(`Entrou no grupo "${nomeGrupo}"!`);
+            syncVerificarEBaixar(true);
+        }
+    }
+
     // --- COMPARTILHADO ---
     function renderCompart() {
+        renderChipsGrupos();
         document.getElementById('mes-referencia-compart').textContent = nomeMesAno(mesRefCompart, anoRefCompart);
         document.getElementById('mes-atual-compart').textContent = nomeMesAno(mesRefCompart, anoRefCompart);
         
-        if (!dadosCompart.regra) dadosCompart.regra = 'proporcional';
+        if (!grupoAtivo().regra) grupoAtivo().regra = 'proporcional';
 
-        const contasMes = dadosCompart.contas.filter(c => {
+        const contasMes = grupoAtivo().contas.filter(c => {
             const d = new Date(c.data + 'T00:00:00');
             return d.getMonth() === mesRefCompart && d.getFullYear() === anoRefCompart;
         });
 
         const resumo = document.getElementById('resumo-mensal-compart');
         const totalDespesas = contasMes.reduce((s, c) => s + c.valor, 0);
-        const totalSalarios = dadosCompart.pessoas.reduce((s, p) => s + (p.salario || 0), 0);
+        const totalSalarios = grupoAtivo().pessoas.reduce((s, p) => s + (p.salario || 0), 0);
         
         let rateioHtml = `
             <div class="flex justify-between mb-2 border-b border-white/5 pb-2">
@@ -1511,21 +1665,21 @@
                 <span class="font-bold text-amber-400">${fmt(totalDespesas)}</span>
             </div>
             <div class="flex gap-2 mb-3">
-                <button onclick="mudarRegraCompart('proporcional')" class="flex-1 text-[10px] py-1 rounded-md ${dadosCompart.regra==='proporcional'?'bg-amber-500 text-black font-bold':'bg-white/5 text-gray-500'}">PROPORCIONAL</button>
-                <button onclick="mudarRegraCompart('igual')" class="flex-1 text-[10px] py-1 rounded-md ${dadosCompart.regra==='igual'?'bg-amber-500 text-black font-bold':'bg-white/5 text-gray-500'}">IGUALITÁRIA</button>
+                <button onclick="mudarRegraCompart('proporcional')" class="flex-1 text-[10px] py-1 rounded-md ${grupoAtivo().regra==='proporcional'?'bg-amber-500 text-black font-bold':'bg-white/5 text-gray-500'}">PROPORCIONAL</button>
+                <button onclick="mudarRegraCompart('igual')" class="flex-1 text-[10px] py-1 rounded-md ${grupoAtivo().regra==='igual'?'bg-amber-500 text-black font-bold':'bg-white/5 text-gray-500'}">IGUALITÁRIA</button>
             </div>
         `;
         
-        if (dadosCompart.pessoas.length > 0) {
-            dadosCompart.pessoas.forEach(p => {
+        if (grupoAtivo().pessoas.length > 0) {
+            grupoAtivo().pessoas.forEach(p => {
                 let valorDevido = 0;
                 let info = '';
-                if (dadosCompart.regra === 'proporcional') {
+                if (grupoAtivo().regra === 'proporcional') {
                     const percentual = totalSalarios > 0 ? (p.salario || 0) / totalSalarios : 0;
                     valorDevido = totalDespesas * percentual;
                     info = `${(percentual * 100).toFixed(1)}%`;
                 } else {
-                    valorDevido = totalDespesas / dadosCompart.pessoas.length;
+                    valorDevido = totalDespesas / grupoAtivo().pessoas.length;
                     info = 'Divisão Igual';
                 }
                 rateioHtml += `
@@ -1539,7 +1693,7 @@
         resumo.innerHTML = rateioHtml;
 
         const listaPessoas = document.getElementById('lista-pessoas');
-        listaPessoas.innerHTML = dadosCompart.pessoas.map((p, i) => `
+        listaPessoas.innerHTML = grupoAtivo().pessoas.map((p, i) => `
             <div class="card-premium rounded-xl p-3 flex justify-between items-center">
                 <div>
                     <p class="font-medium">${p.nome}</p>
@@ -1551,7 +1705,7 @@
 
         const listaContasComp = document.getElementById('lista-contas-compartilhadas');
         listaContasComp.innerHTML = contasMes.map((c, i) => {
-            const originalIdx = dadosCompart.contas.findIndex(dc => dc.id === c.id);
+            const originalIdx = grupoAtivo().contas.findIndex(dc => dc.id === c.id);
             const dataVenc = new Date(c.data + 'T00:00:00');
             const hoje = new Date();
             hoje.setHours(0,0,0,0);
@@ -1583,7 +1737,7 @@
     }
     
     window.togglePagoContaCompart = function(idx) {
-        dadosCompart.contas[idx].pago = !dadosCompart.contas[idx].pago;
+        grupoAtivo().contas[idx].pago = !grupoAtivo().contas[idx].pago;
         salvarCompart(); renderCompart();
     };
 
@@ -1610,12 +1764,12 @@
         const nome = document.getElementById('f-p-nome').value;
         const salario = parseFloat(document.getElementById('f-p-salario').value) || 0;
         if (!nome) return;
-        dadosCompart.pessoas.push({ nome, salario });
+        grupoAtivo().pessoas.push({ nome, salario });
         salvarCompart(); renderCompart(); closeModal();
     };
 
     function formContaCompart(content, editId) {
-        const c = editId !== null ? dadosCompart.contas.find(x => x.id === editId) : { tipo: 'despesa', descricao: '', valor: 0, data: new Date().toISOString().split('T')[0], recorrencia: 'nenhuma' };
+        const c = editId !== null ? grupoAtivo().contas.find(x => x.id === editId) : { tipo: 'despesa', descricao: '', valor: 0, data: new Date().toISOString().split('T')[0], recorrencia: 'nenhuma' };
         // Compatibilidade com contas criadas antes do campo "tipo" existir: infere pelo sinal do valor.
         const tipoAtual = c.tipo || (c.valor < 0 ? 'receita' : 'despesa');
         content.innerHTML = `
@@ -1657,7 +1811,7 @@
     }
     let pendingContaCompartValores = null;
     window.salvarContaCompartAcao = function(editId, modo, valoresParam) {
-        const c = dadosCompart.contas.find(x => x.id === editId);
+        const c = grupoAtivo().contas.find(x => x.id === editId);
         if (!c) return;
 
         // Os campos do formulário já podem não existir mais (a tela de escolha de recorrência
@@ -1670,13 +1824,13 @@
         if (modo === 'apenas') {
             Object.assign(c, { descricao, valor: valorFinal, tipo, data });
         } else if (modo === 'proximas') {
-            dadosCompart.contas.forEach(x => {
+            grupoAtivo().contas.forEach(x => {
                 if (x.serieId === c.serieId && new Date(x.data) >= new Date(c.data)) {
                     Object.assign(x, { descricao, valor: valorFinal, tipo });
                 }
             });
         } else if (modo === 'todas') {
-            dadosCompart.contas.forEach(x => {
+            grupoAtivo().contas.forEach(x => {
                 if (x.serieId === c.serieId) {
                     Object.assign(x, { descricao, valor: valorFinal, tipo });
                 }
@@ -1698,7 +1852,7 @@
         const valorFinal = tipo === 'receita' ? -valorTotal : valorTotal;
 
         if (editId) {
-            const c = dadosCompart.contas.find(x => x.id === editId);
+            const c = grupoAtivo().contas.find(x => x.id === editId);
             if (c && c.serieId) {
                 pendingContaCompartValores = { tipo, descricao, valorTotal, data: dataStr };
                 const html = `
@@ -1745,18 +1899,18 @@
                 else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
                 else novaData.setMonth(dataBase.getMonth() + i);
                 
-                dadosCompart.contas.push({ id: Date.now() + i, serieId, descricao, valor: valorFinal, tipo, data: novaData.toISOString().split('T')[0], pago: false });
+                grupoAtivo().contas.push({ id: Date.now() + i, serieId, descricao, valor: valorFinal, tipo, data: novaData.toISOString().split('T')[0], pago: false });
             }
         } else {
-            dadosCompart.contas.push({ id: Date.now(), descricao, valor: valorFinal, tipo, data: dataStr, pago: false });
+            grupoAtivo().contas.push({ id: Date.now(), descricao, valor: valorFinal, tipo, data: dataStr, pago: false });
         }
         salvarCompart(); renderCompart(); closeModal();
     };
 
-    window.excluirPessoa = function(i) { dadosCompart.pessoas.splice(i, 1); salvarCompart(); renderCompart(); };
+    window.excluirPessoa = function(i) { grupoAtivo().pessoas.splice(i, 1); salvarCompart(); renderCompart(); };
     
     window.excluirContaCompart = function(idx) {
-        const c = dadosCompart.contas[idx];
+        const c = grupoAtivo().contas[idx];
         if (!c) return;
 
         if (c.serieId) {
@@ -1799,15 +1953,15 @@
     };
 
     window.excluirContaCompartAcao = function(id, modo) {
-        const c = dadosCompart.contas.find(x => x.id === id);
+        const c = grupoAtivo().contas.find(x => x.id === id);
         if (!c) return;
 
         if (modo === 'apenas') {
-            dadosCompart.contas = dadosCompart.contas.filter(x => x.id !== id);
+            grupoAtivo().contas = grupoAtivo().contas.filter(x => x.id !== id);
         } else if (modo === 'proximas') {
-            dadosCompart.contas = dadosCompart.contas.filter(x => x.serieId !== c.serieId || new Date(x.data) < new Date(c.data));
+            grupoAtivo().contas = grupoAtivo().contas.filter(x => x.serieId !== c.serieId || new Date(x.data) < new Date(c.data));
         } else if (modo === 'todas') {
-            dadosCompart.contas = dadosCompart.contas.filter(x => x.serieId !== c.serieId);
+            grupoAtivo().contas = grupoAtivo().contas.filter(x => x.serieId !== c.serieId);
         }
 
         salvarCompart();

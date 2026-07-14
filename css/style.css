@@ -134,3 +134,31 @@ header {
   display: block !important;
   margin: 0 !important;
 }
+
+/* --- Teclado de PIN (login) --- */
+.pin-dot {
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.18s ease, border-color 0.18s ease;
+}
+.pin-dot.pin-filled { transform: scale(1.2); }
+.pin-dot.pin-erro { background-color: #EF4444 !important; border-color: #EF4444 !important; }
+.pin-dot.pin-sucesso { background-color: #22C55E !important; border-color: #22C55E !important; }
+
+.pin-key {
+  transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+.pin-key:active { transform: scale(0.88); background-color: rgba(249,115,22,0.16); border-color: rgba(249,115,22,0.4); }
+
+@keyframes pinShake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-9px); }
+  40%, 60% { transform: translateX(9px); }
+}
+.pin-shake { animation: pinShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+
+/* Transição entre as etapas da tela de login (nome -> PIN sim/não -> teclado) */
+.login-step { animation: loginStepIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes loginStepIn {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

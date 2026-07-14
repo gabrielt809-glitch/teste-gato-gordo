@@ -844,6 +844,12 @@
             if (btnPessoal) { btnPessoal.classList.remove('tab-active'); btnPessoal.classList.add('text-gray-400'); }
             renderCompart();
             iniciarPollingSync();
+            const p = perfil();
+            if (p && !p.viuOnboardingCompart) {
+                p.viuOnboardingCompart = true;
+                salvarPessoal();
+                setTimeout(() => mostrarOnboardingCompart(), 300);
+            }
         }
     };
 
@@ -1531,6 +1537,7 @@
                 <button onclick="trocarGrupoCompart('${g.id}')" class="shrink-0 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${g.id === grupoAtivoId ? 'bg-amber-500 text-black' : 'card-premium text-gray-400'}">${g.nome}</button>
             `).join('')}
             <button onclick="abrirNovoGrupo()" class="shrink-0 w-9 h-9 rounded-full card-premium text-gray-400 flex items-center justify-center text-lg">+</button>
+            <button onclick="abrirGerenciarGrupos()" class="shrink-0 w-9 h-9 rounded-full card-premium text-gray-400 flex items-center justify-center text-sm">⚙️</button>
             <button onclick="abrirConvidarGrupo()" class="shrink-0 px-3 py-2 rounded-full text-xs font-bold whitespace-nowrap card-premium text-amber-400">🔗 Convidar</button>
         `;
     }
@@ -1568,6 +1575,59 @@
         mostrarToast(`Grupo "${nome}" criado!`);
     };
 
+    // Tela dedicada pra ver todos os grupos e renomear/excluir cada um.
+    window.abrirGerenciarGrupos = function() {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-4">Gerenciar Grupos</h3>
+            <div class="space-y-2 mb-4">
+                ${gruposCompart.map(g => `
+                    <div class="card-premium rounded-xl p-3 flex items-center justify-between gap-2">
+                        <span class="font-medium text-sm truncate ${g.id === grupoAtivoId ? 'text-amber-400' : ''}">${g.nome}</span>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <button onclick="renomearGrupo('${g.id}')" class="text-gray-400 hover:text-amber-400 p-1">✎</button>
+                            <button onclick="confirmarExcluirGrupo('${g.id}')" class="text-red-400 p-1">✕</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <button onclick="abrirNovoGrupo()" class="w-full card-premium text-xs font-bold py-3 rounded-xl">+ Criar Novo Grupo</button>
+        `;
+    };
+
+    window.renomearGrupo = function(id) {
+        const g = gruposCompart.find(x => x.id === id);
+        if (!g) return;
+        const novoNome = prompt('Novo nome do grupo:', g.nome);
+        if (novoNome && novoNome.trim()) {
+            g.nome = novoNome.trim();
+            salvarGrupos();
+            syncEnviar();
+            renderCompart();
+            abrirGerenciarGrupos();
+        }
+    };
+
+    window.confirmarExcluirGrupo = function(id) {
+        if (gruposCompart.length <= 1) {
+            mostrarToast('Você precisa ter pelo menos um grupo');
+            return;
+        }
+        const g = gruposCompart.find(x => x.id === id);
+        if (!g) return;
+        if (!confirm(`Remover o grupo "${g.nome}" deste aparelho? Quem mais estiver nele continua vendo os dados normalmente, só sai daqui.`)) return;
+        gruposCompart = gruposCompart.filter(x => x.id !== id);
+        salvarGrupos();
+        if (grupoAtivoId === id) {
+            grupoAtivoId = gruposCompart[0].id;
+            localStorage.setItem('gato_gordo_grupo_ativo', grupoAtivoId);
+        }
+        renderCompart();
+        abrirGerenciarGrupos();
+    };
+
     window.abrirConvidarGrupo = function() {
         const g = grupoAtivo();
         if (!syncUrl) {
@@ -1582,9 +1642,7 @@
             <h3 class="text-lg font-bold mb-2">Convidar pro grupo "${g.nome}"</h3>
             <p class="text-xs text-gray-500 mb-4">Envie esse link pra quem você quer que compartilhe esse grupo com você. A pessoa abre o link e aceita entrar — cada grupo fica separado dos demais.</p>
             <div class="bg-white/5 rounded-xl p-3 text-xs break-all mb-3">${link}</div>
-            <button onclick="copiarLinkGrupo('${link}')" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mb-2">📋 Copiar Link</button>
-            <button onclick="renomearGrupo('${g.id}')" class="w-full card-premium text-xs font-bold py-3 rounded-xl mb-2">✎ Renomear Grupo</button>
-            ${gruposCompart.length > 1 ? `<button onclick="sairDoGrupo('${g.id}')" class="w-full text-red-400 text-xs font-bold py-3 rounded-xl">Remover este grupo do aparelho</button>` : ''}
+            <button onclick="copiarLinkGrupo('${link}')" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl">📋 Copiar Link</button>
         `;
     };
 
@@ -1592,30 +1650,32 @@
         navigator.clipboard.writeText(link).then(() => mostrarToast('Link copiado! Envie pra quem vai compartilhar esse grupo.'));
     };
 
-    window.renomearGrupo = function(id) {
-        const g = gruposCompart.find(x => x.id === id);
-        if (!g) return;
-        const novoNome = prompt('Novo nome do grupo:', g.nome);
-        if (novoNome && novoNome.trim()) {
-            g.nome = novoNome.trim();
-            salvarGrupos();
-            syncEnviar();
-            closeModal();
-            renderCompart();
-        }
+    // Onboarding: aparece só na primeira vez que a pessoa abre a aba Compartilhado.
+    window.mostrarOnboardingCompart = function() {
+        const g = grupoAtivo();
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <div class="text-center mb-5">
+                <div class="text-4xl mb-2">👥</div>
+                <h3 class="text-lg font-bold">Bem-vindo à aba Compartilhada!</h3>
+                <p class="text-xs text-gray-500 mt-2 leading-relaxed px-1">Aqui você divide contas com outras pessoas — cônjuge, família, república etc. Dá pra ter vários grupos ao mesmo tempo, cada um com seus próprios participantes e contas, sem se misturar.</p>
+            </div>
+            <label class="text-xs text-gray-400 ml-1">Como quer chamar esse primeiro grupo?</label>
+            <input id="f-onboarding-grupo-nome" value="${g.nome}" placeholder="Ex: Eu e Ana" class="w-full p-3 rounded-xl mb-3 mt-1">
+            <button onclick="concluirOnboardingCompart()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mb-2">Continuar</button>
+            <p class="text-[10px] text-gray-600 text-center px-2">Depois é só tocar em "🔗 Convidar" pra chamar alguém, ou no "+" pra criar outro grupo separado.</p>
+        `;
     };
 
-    window.sairDoGrupo = function(id) {
-        if (gruposCompart.length <= 1) {
-            mostrarToast('Você precisa ter pelo menos um grupo');
-            return;
-        }
-        if (!confirm('Remover este grupo deste aparelho? Os dados continuam salvos pra quem mais estiver nele, só saem daqui.')) return;
-        gruposCompart = gruposCompart.filter(g => g.id !== id);
-        salvarGrupos();
-        if (grupoAtivoId === id) {
-            grupoAtivoId = gruposCompart[0].id;
-            localStorage.setItem('gato_gordo_grupo_ativo', grupoAtivoId);
+    window.concluirOnboardingCompart = function() {
+        const nome = document.getElementById('f-onboarding-grupo-nome').value.trim();
+        const g = grupoAtivo();
+        if (nome) {
+            g.nome = nome;
+            salvarGrupos();
+            syncEnviar();
         }
         closeModal();
         renderCompart();

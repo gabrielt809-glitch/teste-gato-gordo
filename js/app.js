@@ -187,54 +187,66 @@
         pinBuffer = '';
         pinOnComplete = onComplete;
         container.innerHTML = `
-            <div class="text-center mb-8">
-                <h3 class="text-lg font-bold">${titulo}</h3>
-                ${subtitulo ? `<p class="text-xs text-gray-500 mt-2">${subtitulo}</p>` : ''}
-            </div>
-            <div class="flex justify-center gap-4 mb-10">
-                ${[0,1,2,3].map(i => `<div class="pin-dot w-4 h-4 rounded-full border-2 border-white/20 transition-all"></div>`).join('')}
-            </div>
-            <div class="grid grid-cols-3 gap-4 max-w-[260px] mx-auto">
-                ${[1,2,3,4,5,6,7,8,9].map(n => `<button type="button" onclick="pinDigitar(${n})" class="aspect-square rounded-2xl bg-white/5 text-2xl font-bold active:scale-90 active:bg-amber-500/20 transition-transform">${n}</button>`).join('')}
-                <div></div>
-                <button type="button" onclick="pinDigitar(0)" class="aspect-square rounded-2xl bg-white/5 text-2xl font-bold active:scale-90 active:bg-amber-500/20 transition-transform">0</button>
-                <button type="button" onclick="pinApagar()" class="aspect-square rounded-2xl flex items-center justify-center text-xl text-gray-400 active:scale-90 transition-transform">⌫</button>
+            <div class="login-step">
+                <div class="text-center mb-8">
+                    <h3 class="text-xl font-bold tracking-tight">${titulo}</h3>
+                    ${subtitulo ? `<p class="text-xs text-gray-500 mt-2">${subtitulo}</p>` : ''}
+                </div>
+                <div class="flex justify-center gap-4 mb-10">
+                    ${[0,1,2,3].map(() => `<div class="pin-dot w-4 h-4 rounded-full border-2 border-white/15"></div>`).join('')}
+                </div>
+                <div class="grid grid-cols-3 gap-4 max-w-[260px] mx-auto">
+                    ${[1,2,3,4,5,6,7,8,9].map(n => `<button type="button" onclick="pinDigitar(${n})" class="pin-key aspect-square rounded-2xl bg-white/[0.04] border border-white/5 text-2xl font-semibold">${n}</button>`).join('')}
+                    <div></div>
+                    <button type="button" onclick="pinDigitar(0)" class="pin-key aspect-square rounded-2xl bg-white/[0.04] border border-white/5 text-2xl font-semibold">0</button>
+                    <button type="button" onclick="pinApagar()" class="pin-key aspect-square rounded-2xl flex items-center justify-center text-xl text-gray-400">⌫</button>
+                </div>
             </div>
         `;
+    }
+
+    function atualizarPontosPin() {
+        document.querySelectorAll('.pin-dot').forEach((dot, i) => {
+            const preenchido = i < pinBuffer.length;
+            dot.classList.toggle('bg-amber-500', preenchido);
+            dot.classList.toggle('border-amber-500', preenchido);
+            dot.classList.toggle('pin-filled', preenchido);
+        });
     }
 
     window.pinDigitar = function(n) {
         if (pinBuffer.length >= 4) return;
         pinBuffer += String(n);
-        document.querySelectorAll('.pin-dot').forEach((dot, i) => {
-            const preenchido = i < pinBuffer.length;
-            dot.classList.toggle('bg-amber-500', preenchido);
-            dot.classList.toggle('border-amber-500', preenchido);
-        });
+        atualizarPontosPin();
         if (pinBuffer.length === 4) {
             const valor = pinBuffer;
-            setTimeout(() => pinOnComplete && pinOnComplete(valor), 120);
+            setTimeout(() => pinOnComplete && pinOnComplete(valor), 150);
         }
     };
 
     window.pinApagar = function() {
         pinBuffer = pinBuffer.slice(0, -1);
-        document.querySelectorAll('.pin-dot').forEach((dot, i) => {
-            const preenchido = i < pinBuffer.length;
-            dot.classList.toggle('bg-amber-500', preenchido);
-            dot.classList.toggle('border-amber-500', preenchido);
-        });
+        atualizarPontosPin();
     };
 
-    // Feedback de PIN incorreto: pisca vermelho e reseta o buffer.
-    function pinErro(onRetry) {
+    // Feedback de PIN correto: os pontos piscam em verde antes de avançar.
+    function pinSucesso(onFim) {
         const dots = document.querySelectorAll('.pin-dot');
-        dots.forEach(d => d.classList.add('border-red-500'));
+        dots.forEach(d => d.classList.add('pin-sucesso'));
+        setTimeout(() => onFim && onFim(), 220);
+    }
+
+    // Feedback de PIN incorreto: os pontos tremem e piscam em vermelho, depois reseta.
+    function pinErro(onRetry) {
+        const wrapper = document.querySelector('.pin-dot')?.parentElement;
+        const dots = document.querySelectorAll('.pin-dot');
+        dots.forEach(d => d.classList.add('pin-erro'));
+        wrapper?.classList.add('pin-shake');
         if (navigator.vibrate) navigator.vibrate(200);
         setTimeout(() => {
             pinBuffer = '';
             onRetry && onRetry();
-        }, 450);
+        }, 500);
     }
 
     window.renderLogin = function() {
@@ -242,7 +254,7 @@
         if (perfis.length === 0) {
             // Primeiro acesso: só pergunta o nome.
             container.innerHTML = `
-                <div class="space-y-4">
+                <div class="space-y-4 login-step">
                     <div class="space-y-2">
                         <label class="text-[10px] text-gray-500 uppercase tracking-widest ml-2">Como podemos te chamar?</label>
                         <input id="new-perfil-nome" placeholder="Ex: Gabriel" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none">
@@ -250,6 +262,7 @@
                     <button onclick="onboardingNomeContinuar()" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">Continuar</button>
                 </div>
             `;
+            document.getElementById('new-perfil-nome')?.focus();
         } else {
             // Só existe um perfil por aparelho: ou pede o PIN, ou entra direto.
             const p = perfis[0];
@@ -266,9 +279,8 @@
         const container = document.getElementById('login-form');
         renderPinPad(container, `Olá, ${p.nome}`, 'Digite seu PIN para entrar', (pin) => {
             if (pin === p.pin) {
-                logarSucesso();
+                pinSucesso(() => logarSucesso());
             } else {
-                mostrarToast('PIN incorreto');
                 pinErro(() => mostrarPinDesbloqueio(p));
             }
         });
@@ -284,12 +296,16 @@
     function mostrarEtapaSenhaOnboarding() {
         const container = document.getElementById('login-form');
         container.innerHTML = `
-            <div class="space-y-4 text-center">
-                <h3 class="text-lg font-bold">Proteger o app com PIN?</h3>
-                <p class="text-xs text-gray-500">Um PIN de 4 números protege o acesso ao abrir o app. Dá pra mudar isso depois em Configurações.</p>
+            <div class="space-y-5 text-center login-step">
+                <div class="space-y-2">
+                    <h3 class="text-xl font-bold tracking-tight">Proteger o app com PIN?</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed px-2">Um PIN de 4 números protege o acesso ao abrir o app. Dá pra mudar isso depois em Configurações.</p>
+                </div>
                 <div class="grid grid-cols-1 gap-3 pt-2">
-                    <button onclick="onboardingEscolherSenha(true)" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl active:scale-95 transition-transform">Sim, quero um PIN</button>
-                    <button onclick="onboardingEscolherSenha(false)" class="w-full bg-white/5 text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform">Não, entrar direto</button>
+                    <button onclick="onboardingEscolherSenha(true)" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                        <span>🔒</span> Sim, quero um PIN
+                    </button>
+                    <button onclick="onboardingEscolherSenha(false)" class="w-full card-premium text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform">Não, entrar direto</button>
                 </div>
             </div>
         `;
@@ -308,7 +324,7 @@
         renderPinPad(container, 'Crie seu PIN', 'Escolha 4 números', (pin1) => {
             renderPinPad(container, 'Confirme seu PIN', 'Digite novamente para confirmar', (pin2) => {
                 if (pin1 === pin2) {
-                    criarPerfilFinal(true, pin1);
+                    pinSucesso(() => criarPerfilFinal(true, pin1));
                 } else {
                     mostrarToast('Os PINs não coincidem, tente de novo');
                     onboardingCriarPin();
@@ -423,17 +439,21 @@
     window.toggleSenhaAtiva = function() {
         const p = perfil();
         if (p.senhaAtiva) {
-            abrirModalPin('Confirme seu PIN atual', 'Digite o PIN para desativar o bloqueio', (pin) => {
-                if (pin === p.pin) {
-                    p.senhaAtiva = false;
-                    p.pin = null;
-                    salvarPerfis(); closeModal(); abrirMenu();
-                    mostrarToast('Bloqueio por PIN desativado');
-                } else {
-                    mostrarToast('PIN incorreto');
-                    closeModal();
-                }
-            });
+            const tentar = () => {
+                abrirModalPin('Confirme seu PIN atual', 'Digite o PIN para desativar o bloqueio', (pin) => {
+                    if (pin === p.pin) {
+                        pinSucesso(() => {
+                            p.senhaAtiva = false;
+                            p.pin = null;
+                            salvarPerfis(); closeModal(); abrirMenu();
+                            mostrarToast('Bloqueio por PIN desativado');
+                        });
+                    } else {
+                        pinErro(tentar);
+                    }
+                });
+            };
+            tentar();
         } else {
             abrirFluxoCriarPin((novoPin) => {
                 p.senhaAtiva = true;
@@ -446,18 +466,22 @@
 
     window.iniciarAlterarPin = function() {
         const p = perfil();
-        abrirModalPin('Confirme seu PIN atual', 'Digite o PIN atual para continuar', (pinAtual) => {
-            if (pinAtual !== p.pin) {
-                mostrarToast('PIN incorreto');
-                closeModal();
-                return;
-            }
-            abrirFluxoCriarPin((novoPin) => {
-                p.pin = novoPin;
-                salvarPerfis(); closeModal();
-                mostrarToast('PIN alterado com sucesso');
+        const tentar = () => {
+            abrirModalPin('Confirme seu PIN atual', 'Digite o PIN atual para continuar', (pinAtual) => {
+                if (pinAtual !== p.pin) {
+                    pinErro(tentar);
+                    return;
+                }
+                pinSucesso(() => {
+                    abrirFluxoCriarPin((novoPin) => {
+                        p.pin = novoPin;
+                        salvarPerfis(); closeModal();
+                        mostrarToast('PIN alterado com sucesso');
+                    });
+                });
             });
-        });
+        };
+        tentar();
     };
 
     window.abrirMenu = function() {

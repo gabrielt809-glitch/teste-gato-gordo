@@ -109,6 +109,10 @@ input[type="date"] {
   background: rgba(0,0,0,0.8);
   backdrop-filter: blur(10px);
 }
+#login-screen {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1.5rem) !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem) !important;
+}
 
 /* Ajustes de Safe Area para Mobile */
 header {

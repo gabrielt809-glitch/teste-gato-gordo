@@ -723,25 +723,6 @@
             }).join('') || (p.metas.length === 0 ? '<p class="text-gray-500 text-center py-4">Nenhuma meta ou limite definido</p>' : '');
         }
 
-        const listaTrans = document.getElementById('lista-transacoes');
-        listaTrans.innerHTML = transMes.slice().reverse().map((t, i) => `
-            <div class="card-premium rounded-xl p-3 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg flex items-center justify-center ${t.tipo==='receita'?'bg-green-500/20 text-green-400':'bg-red-500/20 text-red-400'}">
-                        ${t.tipo==='receita'?'↑':'↓'}
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium">${t.descricao}</p>
-                        <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3">
-                    <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}</p>
-                    <button onclick="openModal('transacao', ${t.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
-                    <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
-                </div>
-            </div>
-        `).join('') || '<p class="text-gray-500 text-center py-4">Sem transações este mês</p>';
 
         updateChart(transMes);
     };

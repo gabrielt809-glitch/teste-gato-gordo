@@ -181,11 +181,13 @@
     let onboardingNomeTemp = '';
     let pinBuffer = '';
     let pinOnComplete = null;
+    let pinContainerAtivo = null;
 
     // Teclado numérico próprio (0-9) pra digitar o PIN sem nunca abrir o teclado nativo do aparelho.
     function renderPinPad(container, titulo, subtitulo, onComplete) {
         pinBuffer = '';
         pinOnComplete = onComplete;
+        pinContainerAtivo = container;
         container.innerHTML = `
             <div class="login-step">
                 <div class="text-center mb-8">
@@ -206,7 +208,8 @@
     }
 
     function atualizarPontosPin() {
-        document.querySelectorAll('.pin-dot').forEach((dot, i) => {
+        if (!pinContainerAtivo) return;
+        pinContainerAtivo.querySelectorAll('.pin-dot').forEach((dot, i) => {
             const preenchido = i < pinBuffer.length;
             dot.classList.toggle('bg-amber-500', preenchido);
             dot.classList.toggle('border-amber-500', preenchido);
@@ -231,15 +234,17 @@
 
     // Feedback de PIN correto: os pontos piscam em verde antes de avançar.
     function pinSucesso(onFim) {
-        const dots = document.querySelectorAll('.pin-dot');
+        if (!pinContainerAtivo) { onFim && onFim(); return; }
+        const dots = pinContainerAtivo.querySelectorAll('.pin-dot');
         dots.forEach(d => d.classList.add('pin-sucesso'));
         setTimeout(() => onFim && onFim(), 220);
     }
 
     // Feedback de PIN incorreto: os pontos tremem e piscam em vermelho, depois reseta.
     function pinErro(onRetry) {
-        const wrapper = document.querySelector('.pin-dot')?.parentElement;
-        const dots = document.querySelectorAll('.pin-dot');
+        if (!pinContainerAtivo) { pinBuffer = ''; onRetry && onRetry(); return; }
+        const wrapper = pinContainerAtivo.querySelector('.pin-dot')?.parentElement;
+        const dots = pinContainerAtivo.querySelectorAll('.pin-dot');
         dots.forEach(d => d.classList.add('pin-erro'));
         wrapper?.classList.add('pin-shake');
         if (navigator.vibrate) navigator.vibrate(200);

@@ -205,6 +205,77 @@
     function salvarPessoal() { salvarPerfis(); }
 
     function fmt(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v); }
+
+    // --- Extrato agrupado por dia (usado nas telas de conta e cartão) ---
+    function agruparTransacoesPorDia(transacoes) {
+        const ordenadas = transacoes.slice().sort((a, b) => {
+            const diffData = new Date(b.data) - new Date(a.data);
+            if (diffData !== 0) return diffData;
+            return (b.id || 0) - (a.id || 0);
+        });
+        const grupos = [];
+        let grupoAtual = null;
+        ordenadas.forEach(t => {
+            if (!grupoAtual || grupoAtual.data !== t.data) {
+                grupoAtual = { data: t.data, transacoes: [] };
+                grupos.push(grupoAtual);
+            }
+            grupoAtual.transacoes.push(t);
+        });
+        return grupos;
+    }
+
+    function formatarCabecalhoDia(dataStr) {
+        const data = new Date(dataStr + 'T00:00:00');
+        const hoje = new Date(); hoje.setHours(0,0,0,0);
+        const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
+        if (data.getTime() === hoje.getTime()) return 'Hoje';
+        if (data.getTime() === ontem.getTime()) return 'Ontem';
+        const texto = data.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+        return texto.charAt(0).toUpperCase() + texto.slice(1).replace('.', '');
+    }
+
+    // contexto.contaId (opcional): usado pra saber se uma transferência é entrada ou saída daquela conta.
+    function linhaExtratoHtml(t, contexto) {
+        contexto = contexto || {};
+        const isReceita = t.tipo === 'receita' || (t.tipo === 'transferencia' && contexto.contaId && t.contaDestinoId === contexto.contaId);
+        const icone = t.tipo === 'transferencia' ? '⇄' : (isReceita ? '↑' : '↓');
+        return `
+            <div class="card-premium rounded-xl p-3 flex justify-between items-center">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isReceita ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${icone}</div>
+                    <p class="text-sm font-medium truncate">${t.descricao}</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <p class="text-sm font-bold ${isReceita ? 'text-green-400' : 'text-red-400'}">${isReceita ? '+' : '-'} ${fmt(Math.abs(t.valor))}</p>
+                    <button onclick="openModal('transacao', ${t.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
+                    <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderExtratoAgrupadoHtml(transacoes, contexto) {
+        const grupos = agruparTransacoesPorDia(transacoes);
+        if (grupos.length === 0) return '<p class="text-gray-500 text-center py-4 text-sm">Nenhuma transação neste período</p>';
+        return grupos.map(grupo => {
+            const totalDia = grupo.transacoes.reduce((s, t) => {
+                const isReceita = t.tipo === 'receita' || (t.tipo === 'transferencia' && contexto && contexto.contaId && t.contaDestinoId === contexto.contaId);
+                return s + (isReceita ? t.valor : -t.valor);
+            }, 0);
+            return `
+                <div class="mb-4 last:mb-0">
+                    <div class="flex justify-between items-center px-1 mb-2">
+                        <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">${formatarCabecalhoDia(grupo.data)}</h4>
+                        <span class="text-[11px] font-semibold ${totalDia >= 0 ? 'text-green-400' : 'text-red-400'}">${totalDia >= 0 ? '+' : '-'} ${fmt(Math.abs(totalDia))}</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${grupo.transacoes.map(t => linhaExtratoHtml(t, contexto)).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
     function nomeMesAno(m, a) {
         const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
         return `${meses[m]} de ${a}`;
@@ -885,19 +956,7 @@
             
             <div class="space-y-2 mt-4">
                 <h4 class="text-xs font-bold text-gray-500 uppercase px-1">Lançamentos no Mês</h4>
-                ${transCartaoMes.map(t => `
-                    <div class="card-premium rounded-xl p-3 flex justify-between items-center text-sm">
-                        <div>
-                            <p>${t.descricao}</p>
-                            <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <p class="font-bold text-red-400">${fmt(t.valor)}</p>
-                            <button onclick="openModal('transacao', ${t.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
-                            <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
-                        </div>
-                    </div>
-                `).join('') || '<p class="text-gray-500 text-center text-xs py-4">Sem lançamentos este mês</p>'}
+                ${renderExtratoAgrupadoHtml(transCartaoMes, {})}
             </div>
           </div>
           
@@ -940,23 +999,9 @@
                 </div>
 
                 <div class="space-y-2">
-                    <h3 class="text-lg font-semibold px-1">Lançamentos do Mês</h3>
-                    <div class="space-y-2">
-                        ${transContaMes.slice().reverse().map(t => `
-                            <div class="card-premium rounded-xl p-3 flex justify-between items-center">
-                                <div>
-                                    <p class="text-sm font-medium">${t.descricao}</p>
-                                    <p class="text-[10px] text-gray-500">${new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                                </div>
-                                <div class="flex items-center gap-3">
-                                    <p class="text-sm font-bold ${t.tipo==='receita'?'text-green-400':'text-red-400'}">
-                                        ${t.tipo==='receita'?'+':'-'} ${fmt(t.valor)}
-                                    </p>
-                                    <button onclick="openModal('transacao', ${t.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
-                                    <button onclick="confirmarExcluirTransacao(${t.id})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
-                                </div>
-                            </div>
-                        `).join('') || '<p class="text-gray-500 text-center py-4">Nenhuma transação este mês</p>'}
+                    <h3 class="text-lg font-semibold px-1">Extrato do Mês</h3>
+                    <div>
+                        ${renderExtratoAgrupadoHtml(transContaMes, { contaId: conta.id })}
                     </div>
                 </div>
 
@@ -1752,25 +1797,27 @@
             hoje.setHours(0,0,0,0);
             const diffDias = Math.ceil((dataVenc - hoje) / (1000 * 60 * 60 * 24));
             const isUrgente = diffDias <= 3 && diffDias >= 0 && !c.pago;
+            const isReceita = c.tipo === 'receita' || (c.tipo === undefined && c.valor < 0);
 
             return `
-                <div class="card-premium rounded-xl p-3 flex justify-between items-center ${c.pago ? 'opacity-50' : ''} ${isUrgente ? 'border-l-4 border-red-500' : ''}">
-                    <div class="flex items-center gap-3">
-                        <input type="checkbox" ${c.pago ? 'checked' : ''} onchange="togglePagoContaCompart(${originalIdx})" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-amber-500">
-                        <div>
-                            <p class="font-medium ${c.pago ? 'line-through text-gray-500' : ''}">${c.descricao}</p>
-                            <div class="flex items-center gap-2">
-                                <p class="text-xs text-gray-500">${fmt(c.valor)}</p>
-                                <span class="text-[9px] ${isUrgente ? 'text-red-400 font-bold' : 'text-gray-600'}">
-                                    📅 ${dataVenc.toLocaleDateString('pt-BR')}
-                                    ${isUrgente ? ' (VENCE LOGO!)' : ''}
-                                </span>
+                <div class="card-premium rounded-2xl p-4 flex items-center justify-between gap-3 ${c.pago ? 'opacity-50' : ''} ${isUrgente ? 'border-l-4 border-red-500' : ''}">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <input type="checkbox" ${c.pago ? 'checked' : ''} onchange="togglePagoContaCompart(${originalIdx})" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-amber-500 shrink-0">
+                        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isReceita ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${isReceita ? '↑' : '↓'}</div>
+                        <div class="min-w-0">
+                            <p class="font-medium text-sm truncate ${c.pago ? 'line-through text-gray-500' : ''}">${c.descricao}</p>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <span class="text-[10px] text-gray-500">📅 ${dataVenc.toLocaleDateString('pt-BR')}</span>
+                                ${c.pago
+                                    ? '<span class="text-[9px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded-md font-bold uppercase">Pago</span>'
+                                    : (isUrgente ? '<span class="text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-md font-bold uppercase">Vence logo</span>' : '')}
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 shrink-0">
+                        <p class="text-sm font-bold ${isReceita ? 'text-green-400' : 'text-red-400'}">${isReceita ? '+' : '-'} ${fmt(Math.abs(c.valor))}</p>
                         <button onclick="openModal('conta-compartilhada', ${c.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
-                        <button onclick="excluirContaCompart(${originalIdx})" class="text-red-400 text-xs">✕</button>
+                        <button onclick="excluirContaCompart(${originalIdx})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
                     </div>
                 </div>
             `;

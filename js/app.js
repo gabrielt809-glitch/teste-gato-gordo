@@ -229,8 +229,9 @@
         const data = new Date(dataStr + 'T00:00:00');
         const hoje = new Date(); hoje.setHours(0,0,0,0);
         const ontem = new Date(hoje); ontem.setDate(ontem.getDate() - 1);
-        if (data.getTime() === hoje.getTime()) return 'Hoje';
-        if (data.getTime() === ontem.getTime()) return 'Ontem';
+        const dataPorExtenso = data.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+        if (data.getTime() === hoje.getTime()) return `Hoje, ${dataPorExtenso}`;
+        if (data.getTime() === ontem.getTime()) return `Ontem, ${dataPorExtenso}`;
         const texto = data.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
         return texto.charAt(0).toUpperCase() + texto.slice(1).replace('.', '');
     }
@@ -1800,24 +1801,26 @@
             const isReceita = c.tipo === 'receita' || (c.tipo === undefined && c.valor < 0);
 
             return `
-                <div class="card-premium rounded-2xl p-4 flex items-center justify-between gap-3 ${c.pago ? 'opacity-50' : ''} ${isUrgente ? 'border-l-4 border-red-500' : ''}">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <input type="checkbox" ${c.pago ? 'checked' : ''} onchange="togglePagoContaCompart(${originalIdx})" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-amber-500 shrink-0">
-                        <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isReceita ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${isReceita ? '↑' : '↓'}</div>
-                        <div class="min-w-0">
+                <div class="card-premium rounded-2xl p-4 ${c.pago ? 'opacity-50' : ''} ${isUrgente ? 'border-l-4 border-red-500' : ''}">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <input type="checkbox" ${c.pago ? 'checked' : ''} onchange="togglePagoContaCompart(${originalIdx})" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-amber-500 shrink-0">
+                            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isReceita ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${isReceita ? '↑' : '↓'}</div>
                             <p class="font-medium text-sm truncate ${c.pago ? 'line-through text-gray-500' : ''}">${c.descricao}</p>
-                            <div class="flex items-center gap-2 mt-0.5">
-                                <span class="text-[10px] text-gray-500">📅 ${dataVenc.toLocaleDateString('pt-BR')}</span>
-                                ${c.pago
-                                    ? '<span class="text-[9px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded-md font-bold uppercase">Pago</span>'
-                                    : (isUrgente ? '<span class="text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-md font-bold uppercase">Vence logo</span>' : '')}
-                            </div>
                         </div>
+                        <p class="text-sm font-bold shrink-0 ${isReceita ? 'text-green-400' : 'text-red-400'}">${isReceita ? '+' : '-'} ${fmt(Math.abs(c.valor))}</p>
                     </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        <p class="text-sm font-bold ${isReceita ? 'text-green-400' : 'text-red-400'}">${isReceita ? '+' : '-'} ${fmt(Math.abs(c.valor))}</p>
-                        <button onclick="openModal('conta-compartilhada', ${c.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
-                        <button onclick="excluirContaCompart(${originalIdx})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
+                    <div class="flex items-center justify-between gap-3 mt-2 pl-[3.25rem]">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="text-[10px] text-gray-500 shrink-0">${dataVenc.toLocaleDateString('pt-BR')}</span>
+                            ${c.pago
+                                ? '<span class="text-[9px] bg-white/5 text-gray-400 px-1.5 py-0.5 rounded-md font-bold uppercase shrink-0">Pago</span>'
+                                : (isUrgente ? '<span class="text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-md font-bold uppercase shrink-0">Vence logo</span>' : '')}
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <button onclick="openModal('conta-compartilhada', ${c.id})" class="text-gray-600 hover:text-amber-400 transition-colors p-1">✎</button>
+                            <button onclick="excluirContaCompart(${originalIdx})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
+                        </div>
                     </div>
                 </div>
             `;

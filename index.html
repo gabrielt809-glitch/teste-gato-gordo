@@ -129,7 +129,15 @@
           <section class="mt-8">
             <h2 class="text-lg font-semibold mb-4">📊 Análise de Gastos</h2>
             <div class="card-premium rounded-2xl p-4">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <p class="text-[10px] text-gray-500 uppercase tracking-widest">Total no mês</p>
+                  <p id="analise-total-mes" class="text-2xl font-bold"></p>
+                </div>
+                <span id="analise-comparativo" class="text-xs font-bold px-2 py-1 rounded-lg"></span>
+              </div>
               <canvas id="chart-gastos" class="w-full"></canvas>
+              <div id="lista-analise-gastos" class="space-y-3 mt-4"></div>
             </div>
           </section>
         </div>

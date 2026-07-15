@@ -692,8 +692,8 @@
             return d.getMonth() === mesRefPessoal && d.getFullYear() === anoRefPessoal;
         });
 
-        const receitas = transMes.filter(t => t.tipo === 'receita').reduce((s, t) => s + t.valor, 0);
-        const despesas = transMes.filter(t => t.tipo === 'despesa' || t.tipo === 'despesa-cartao').reduce((s, t) => s + t.valor, 0);
+        const receitas = transMes.filter(t => t.tipo === 'receita' && t.categoria !== 'Metas').reduce((s, t) => s + t.valor, 0);
+        const despesas = transMes.filter(t => (t.tipo === 'despesa' || t.tipo === 'despesa-cartao') && t.categoria !== 'Metas').reduce((s, t) => s + t.valor, 0);
         
         document.getElementById('resumo-receitas-mes').textContent = fmt(receitas);
         document.getElementById('resumo-despesas-mes').textContent = fmt(despesas);
@@ -766,8 +766,9 @@
                 </div>
                 <div class="progress-bar mb-2"><div class="progress-fill bg-amber-500" style="width:${Math.min((m.atual/m.objetivo)*100, 100)}%"></div></div>
                 <div class="flex gap-2">
-                    <button onclick="guardarMeta(${i})" class="flex-1 bg-amber-500/10 text-amber-400 py-1 rounded-lg text-[10px] font-bold">GUARDAR</button>
-                    <button onclick="excluirMeta(${i})" class="text-red-400/50 text-[10px]">✕</button>
+                    <button onclick="abrirGuardarMeta(${i})" class="flex-1 bg-amber-500/10 text-amber-400 py-1 rounded-lg text-[10px] font-bold">GUARDAR</button>
+                    <button onclick="abrirResgatarMeta(${i})" class="flex-1 bg-white/5 text-gray-300 py-1 rounded-lg text-[10px] font-bold">RESGATAR</button>
+                    <button onclick="excluirMeta(${i})" class="text-red-400/50 text-[10px] px-2">✕</button>
                 </div>
             </div>
         `).join('') || '<p class="text-gray-500 text-center py-4 text-sm">Nenhuma meta criada ainda</p>';
@@ -804,7 +805,7 @@
         if (!ctx) return;
         
         const categorias = {};
-        trans.filter(t => t.tipo === 'despesa' || t.tipo === 'despesa-cartao').forEach(t => {
+        trans.filter(t => (t.tipo === 'despesa' || t.tipo === 'despesa-cartao') && t.categoria !== 'Metas').forEach(t => {
             const cat = t.categoria || 'Outros';
             categorias[cat] = (categorias[cat] || 0) + t.valor;
         });
@@ -832,12 +833,96 @@
         });
     }
 
-    window.guardarMeta = function(idx) {
-        const valor = parseFloat(prompt('Quanto deseja guardar?'));
-        if (!valor || isNaN(valor)) return;
+    window.abrirGuardarMeta = function(idx) {
         const p = perfil();
-        p.metas[idx].atual += valor;
-        salvarPessoal(); renderPessoal();
+        const m = p.metas[idx];
+        if (!p.contas.length) return alert('Cadastre uma conta primeiro');
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-1">Guardar em "${m.nome}"</h3>
+            <p class="text-xs text-gray-500 mb-4">O valor sai da conta escolhida e vai pra essa meta.</p>
+            <label class="text-xs text-gray-400">Valor</label>
+            <input id="f-meta-valor" type="number" step="0.01" placeholder="0,00" class="w-full p-3 rounded-xl mb-3 mt-1">
+            <label class="text-xs text-gray-400">De qual conta sai o dinheiro?</label>
+            <select id="f-meta-conta" class="w-full p-3 rounded-xl mb-3 mt-1">
+                ${p.contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
+            </select>
+            <button onclick="confirmarGuardarMeta(${idx})" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl">Guardar</button>
+        `;
+    };
+
+    window.confirmarGuardarMeta = function(idx) {
+        const p = perfil();
+        const m = p.metas[idx];
+        const valor = parseFloat(document.getElementById('f-meta-valor').value);
+        const contaId = parseInt(document.getElementById('f-meta-conta').value);
+        if (!valor || valor <= 0 || !contaId) return alert('Preencha os campos corretamente');
+
+        p.transacoes.push({
+            id: Date.now(),
+            tipo: 'despesa',
+            descricao: `Guardado na meta "${m.nome}"`,
+            valor,
+            data: new Date().toISOString().split('T')[0],
+            contaId,
+            categoria: 'Metas'
+        });
+        m.atual += valor;
+
+        salvarPessoal();
+        closeModal();
+        renderPessoal();
+        atualizarTelaDetalheAposSalvar(contaId, null);
+        mostrarToast(`${fmt(valor)} guardado em "${m.nome}"`);
+    };
+
+    window.abrirResgatarMeta = function(idx) {
+        const p = perfil();
+        const m = p.metas[idx];
+        if (m.atual <= 0) return mostrarToast('Essa meta ainda não tem saldo pra resgatar');
+        if (!p.contas.length) return alert('Cadastre uma conta primeiro');
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-1">Resgatar de "${m.nome}"</h3>
+            <p class="text-xs text-gray-500 mb-4">O valor sai dessa meta e volta pra conta escolhida. Disponível: ${fmt(m.atual)}</p>
+            <label class="text-xs text-gray-400">Valor</label>
+            <input id="f-meta-valor-resgate" type="number" step="0.01" max="${m.atual}" placeholder="0,00" class="w-full p-3 rounded-xl mb-3 mt-1">
+            <label class="text-xs text-gray-400">Pra qual conta vai o dinheiro?</label>
+            <select id="f-meta-conta-resgate" class="w-full p-3 rounded-xl mb-3 mt-1">
+                ${p.contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
+            </select>
+            <button onclick="confirmarResgatarMeta(${idx})" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl">Resgatar</button>
+        `;
+    };
+
+    window.confirmarResgatarMeta = function(idx) {
+        const p = perfil();
+        const m = p.metas[idx];
+        const valor = parseFloat(document.getElementById('f-meta-valor-resgate').value);
+        const contaId = parseInt(document.getElementById('f-meta-conta-resgate').value);
+        if (!valor || valor <= 0 || !contaId) return alert('Preencha os campos corretamente');
+        if (valor > m.atual) return alert('Esse valor é maior do que o disponível na meta');
+
+        p.transacoes.push({
+            id: Date.now(),
+            tipo: 'receita',
+            descricao: `Resgatado da meta "${m.nome}"`,
+            valor,
+            data: new Date().toISOString().split('T')[0],
+            contaId,
+            categoria: 'Metas'
+        });
+        m.atual -= valor;
+
+        salvarPessoal();
+        closeModal();
+        renderPessoal();
+        atualizarTelaDetalheAposSalvar(contaId, null);
+        mostrarToast(`${fmt(valor)} resgatado de "${m.nome}"`);
     };
 
     window.excluirMeta = function(idx) {

@@ -800,21 +800,60 @@
         updateChart(transMes);
     };
 
+    const PALETA_CATEGORIAS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+
     function updateChart(trans) {
         const ctx = document.getElementById('chart-gastos');
+        const listaEl = document.getElementById('lista-analise-gastos');
+        const totalEl = document.getElementById('analise-total-mes');
+        const comparativoEl = document.getElementById('analise-comparativo');
         if (!ctx) return;
-        
+
+        const p = perfil();
+
         const categorias = {};
         trans.filter(t => (t.tipo === 'despesa' || t.tipo === 'despesa-cartao') && t.categoria !== 'Metas').forEach(t => {
             const cat = t.categoria || 'Outros';
             categorias[cat] = (categorias[cat] || 0) + t.valor;
         });
 
-        const labels = Object.keys(categorias);
-        const values = Object.values(categorias);
+        const entradas = Object.entries(categorias).sort((a, b) => b[1] - a[1]);
+        const totalMes = entradas.reduce((s, [, v]) => s + v, 0);
+
+        if (totalEl) totalEl.textContent = fmt(totalMes);
+
+        // Comparação com o mês anterior
+        if (comparativoEl) {
+            let mesAnt = mesRefPessoal - 1, anoAnt = anoRefPessoal;
+            if (mesAnt < 0) { mesAnt = 11; anoAnt--; }
+            const totalMesAnterior = p.transacoes.filter(t => {
+                const d = new Date(t.data + 'T00:00:00');
+                return d.getMonth() === mesAnt && d.getFullYear() === anoAnt && (t.tipo === 'despesa' || t.tipo === 'despesa-cartao') && t.categoria !== 'Metas';
+            }).reduce((s, t) => s + t.valor, 0);
+
+            if (totalMesAnterior > 0) {
+                const diffPct = ((totalMes - totalMesAnterior) / totalMesAnterior) * 100;
+                const subiu = diffPct > 0;
+                comparativoEl.textContent = `${subiu ? '▲' : '▼'} ${Math.abs(diffPct).toFixed(0)}% vs mês anterior`;
+                comparativoEl.className = `text-xs font-bold px-2 py-1 rounded-lg shrink-0 ${subiu ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`;
+            } else {
+                comparativoEl.textContent = '';
+                comparativoEl.className = 'text-xs font-bold px-2 py-1 rounded-lg shrink-0';
+            }
+        }
 
         if (myChart) myChart.destroy();
-        if (labels.length === 0) return;
+
+        if (entradas.length === 0) {
+            ctx.style.display = 'none';
+            if (listaEl) listaEl.innerHTML = '<p class="text-gray-500 text-center py-6 text-sm">Nenhum gasto registrado neste mês</p>';
+            return;
+        }
+        ctx.style.display = 'block';
+
+        const labels = entradas.map(e => e[0]);
+        const values = entradas.map(e => e[1]);
+        const cores = labels.map((_, i) => PALETA_CATEGORIAS[i % PALETA_CATEGORIAS.length]);
 
         myChart = new Chart(ctx, {
             type: 'doughnut',
@@ -822,15 +861,39 @@
                 labels: labels,
                 datasets: [{
                     data: values,
-                    backgroundColor: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'],
+                    backgroundColor: cores,
                     borderWidth: 0
                 }]
             },
             options: {
-                plugins: { legend: { display: true, position: 'bottom', labels: { color: '#9ca3af', font: { size: 10 } } } },
+                plugins: { legend: { display: false } },
                 cutout: '70%'
             }
         });
+
+        if (listaEl) {
+            listaEl.innerHTML = entradas.map(([nome, valor], i) => {
+                const pct = totalMes > 0 ? (valor / totalMes) * 100 : 0;
+                const cat = (p.categorias || []).find(c => c.nome === nome);
+                const icone = cat ? cat.icone : '📦';
+                return `
+                    <div>
+                        <div class="flex items-center justify-between mb-1 gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${cores[i]}"></span>
+                                <span class="text-xs shrink-0">${icone}</span>
+                                <p class="text-sm font-medium truncate">${nome}</p>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-[10px] text-gray-500">${pct.toFixed(0)}%</span>
+                                <p class="text-sm font-bold">${fmt(valor)}</p>
+                            </div>
+                        </div>
+                        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%; background:${cores[i]}"></div></div>
+                    </div>
+                `;
+            }).join('');
+        }
     }
 
     window.abrirGuardarMeta = function(idx) {

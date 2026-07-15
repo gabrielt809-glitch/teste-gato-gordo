@@ -692,12 +692,27 @@
             return d.getMonth() === mesRefPessoal && d.getFullYear() === anoRefPessoal;
         });
 
-        const receitas = transMes.filter(t => t.tipo === 'receita' && t.categoria !== 'Metas').reduce((s, t) => s + t.valor, 0);
-        const despesas = transMes.filter(t => (t.tipo === 'despesa' || t.tipo === 'despesa-cartao') && t.categoria !== 'Metas').reduce((s, t) => s + t.valor, 0);
-        
-        document.getElementById('resumo-receitas-mes').textContent = fmt(receitas);
-        document.getElementById('resumo-despesas-mes').textContent = fmt(despesas);
-        document.getElementById('resumo-saldo-mes').textContent = fmt(receitas - despesas);
+        // Saldo Inicial / Atual / Futuro Previsto do mês em navegação
+        const saldoBaseContas = p.contas.reduce((s, c) => s + c.saldoInicial, 0);
+        function saldoAgregadoAte(dataLimite) {
+            let saldo = saldoBaseContas;
+            p.transacoes.forEach(t => {
+                const d = new Date(t.data + 'T00:00:00');
+                if (d <= dataLimite) {
+                    if (t.tipo === 'receita') saldo += t.valor;
+                    if (t.tipo === 'despesa') saldo -= t.valor;
+                }
+            });
+            return saldo;
+        }
+        const inicioMesRef = new Date(anoRefPessoal, mesRefPessoal, 1);
+        const fimMesRef = new Date(anoRefPessoal, mesRefPessoal + 1, 0, 23, 59, 59, 999);
+        const hoje = new Date(); hoje.setHours(23,59,59,999);
+        const corteAtual = hoje < inicioMesRef ? new Date(inicioMesRef.getTime() - 1) : (hoje > fimMesRef ? fimMesRef : hoje);
+
+        document.getElementById('resumo-saldo-inicial').textContent = fmt(saldoAgregadoAte(new Date(inicioMesRef.getTime() - 1)));
+        document.getElementById('resumo-saldo-atual').textContent = fmt(saldoAgregadoAte(corteAtual));
+        document.getElementById('resumo-saldo-futuro').textContent = fmt(saldoAgregadoAte(fimMesRef));
 
         let saldoTotal = p.contas.reduce((s, c) => s + c.saldoInicial, 0);
         p.transacoes.forEach(t => {

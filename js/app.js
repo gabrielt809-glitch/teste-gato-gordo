@@ -770,7 +770,7 @@
                     <button onclick="excluirMeta(${i})" class="text-red-400/50 text-[10px]">✕</button>
                 </div>
             </div>
-        `).join('') || '';
+        `).join('') || '<p class="text-gray-500 text-center py-4 text-sm">Nenhuma meta criada ainda</p>';
 
         // Inserir Limites de Categoria
         const listaLimites = document.getElementById('lista-limites');
@@ -792,7 +792,7 @@
                         <div class="progress-bar"><div class="progress-fill ${cor}" style="width:${pct}%"></div></div>
                     </div>
                 `;
-            }).join('') || (p.metas.length === 0 ? '<p class="text-gray-500 text-center py-4">Nenhuma meta ou limite definido</p>' : '');
+            }).join('') || '<p class="text-gray-500 text-center py-4 text-sm">Nenhum limite definido — defina em "Gerenciar"</p>';
         }
 
 

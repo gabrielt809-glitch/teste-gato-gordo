@@ -1019,7 +1019,8 @@
         p.transacoes = p.transacoes.filter(t => t.contaId !== conta.id && t.contaDestinoId !== conta.id);
         p.contas.splice(idx, 1);
         salvarPessoal();
-        if (telaAtual === 'detalhe-conta') voltarParaApp(); else renderPessoal();
+        if (telaAtual === 'detalhe-conta') voltarParaApp();
+        renderPessoal();
         mostrarToast('Conta excluída');
     };
 
@@ -1035,7 +1036,8 @@
         p.transacoes = p.transacoes.filter(t => t.cartaoId !== cartao.id);
         p.cartoes.splice(idx, 1);
         salvarPessoal();
-        if (telaAtual === 'detalhe-cartao') voltarParaApp(); else renderPessoal();
+        if (telaAtual === 'detalhe-cartao') voltarParaApp();
+        renderPessoal();
         mostrarToast('Cartão excluído');
     };
 

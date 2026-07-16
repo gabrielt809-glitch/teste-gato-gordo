@@ -1049,6 +1049,117 @@
         }
     };
 
+    // --- Calculadora (atalho no cabeçalho) ---
+    let calcDisplay = '0';
+    let calcOperandoAnterior = null;
+    let calcOperador = null;
+    let calcNovoNumero = true;
+
+    window.abrirCalculadora = function() {
+        calcDisplay = '0';
+        calcOperandoAnterior = null;
+        calcOperador = null;
+        calcNovoNumero = true;
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <div class="mb-4">
+                <div id="calc-display" class="w-full bg-white/5 rounded-2xl p-4 text-right text-3xl font-bold truncate">0</div>
+            </div>
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="calcClear()" class="pin-key col-span-2 rounded-2xl bg-white/5 py-4 text-sm font-bold text-red-400">C</button>
+                <button onclick="calcApagar()" class="pin-key rounded-2xl bg-white/5 py-4 text-lg">⌫</button>
+                <button onclick="calcOperadorClick('÷')" class="pin-key rounded-2xl bg-amber-500/20 text-amber-400 py-4 text-lg font-bold">÷</button>
+
+                <button onclick="calcDigito('7')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">7</button>
+                <button onclick="calcDigito('8')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">8</button>
+                <button onclick="calcDigito('9')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">9</button>
+                <button onclick="calcOperadorClick('×')" class="pin-key rounded-2xl bg-amber-500/20 text-amber-400 py-4 text-lg font-bold">×</button>
+
+                <button onclick="calcDigito('4')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">4</button>
+                <button onclick="calcDigito('5')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">5</button>
+                <button onclick="calcDigito('6')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">6</button>
+                <button onclick="calcOperadorClick('-')" class="pin-key rounded-2xl bg-amber-500/20 text-amber-400 py-4 text-lg font-bold">−</button>
+
+                <button onclick="calcDigito('1')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">1</button>
+                <button onclick="calcDigito('2')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">2</button>
+                <button onclick="calcDigito('3')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">3</button>
+                <button onclick="calcOperadorClick('+')" class="pin-key rounded-2xl bg-amber-500/20 text-amber-400 py-4 text-lg font-bold">+</button>
+
+                <button onclick="calcDigito('0')" class="pin-key col-span-2 rounded-2xl bg-white/5 py-4 text-lg font-semibold">0</button>
+                <button onclick="calcDigito('.')" class="pin-key rounded-2xl bg-white/5 py-4 text-lg font-semibold">,</button>
+                <button onclick="calcIgual()" class="pin-key rounded-2xl bg-amber-500 text-black py-4 text-lg font-bold">=</button>
+            </div>
+        `;
+    };
+
+    function calcAtualizarDisplay() {
+        const el = document.getElementById('calc-display');
+        if (el) el.textContent = calcDisplay.replace('.', ',');
+    }
+
+    window.calcDigito = function(d) {
+        if (calcNovoNumero) {
+            calcDisplay = (d === '.') ? '0.' : d;
+            calcNovoNumero = false;
+        } else {
+            if (d === '.' && calcDisplay.includes('.')) return;
+            if (calcDisplay.length >= 14) return;
+            calcDisplay += d;
+        }
+        calcAtualizarDisplay();
+    };
+
+    window.calcApagar = function() {
+        if (calcNovoNumero) return;
+        calcDisplay = calcDisplay.length > 1 ? calcDisplay.slice(0, -1) : '0';
+        if (calcDisplay === '' || calcDisplay === '-') calcDisplay = '0';
+        calcAtualizarDisplay();
+    };
+
+    window.calcClear = function() {
+        calcDisplay = '0';
+        calcOperandoAnterior = null;
+        calcOperador = null;
+        calcNovoNumero = true;
+        calcAtualizarDisplay();
+    };
+
+    function calcCalcular(a, b, op) {
+        switch (op) {
+            case '+': return a + b;
+            case '-': return a - b;
+            case '×': return a * b;
+            case '÷': return b === 0 ? NaN : a / b;
+            default: return b;
+        }
+    }
+
+    window.calcOperadorClick = function(op) {
+        const atual = parseFloat(calcDisplay);
+        if (calcOperandoAnterior !== null && calcOperador && !calcNovoNumero) {
+            calcOperandoAnterior = calcCalcular(calcOperandoAnterior, atual, calcOperador);
+            calcDisplay = String(Number(calcOperandoAnterior.toFixed(10)));
+        } else {
+            calcOperandoAnterior = atual;
+        }
+        calcOperador = op;
+        calcNovoNumero = true;
+        calcAtualizarDisplay();
+    };
+
+    window.calcIgual = function() {
+        if (calcOperador === null || calcOperandoAnterior === null) return;
+        const atual = parseFloat(calcDisplay);
+        const resultado = calcCalcular(calcOperandoAnterior, atual, calcOperador);
+        calcDisplay = isNaN(resultado) ? 'Erro' : String(Number(resultado.toFixed(10)));
+        calcOperandoAnterior = null;
+        calcOperador = null;
+        calcNovoNumero = true;
+        calcAtualizarDisplay();
+    };
+
     // --- Lista de Compras (Pessoal e Compartilhado, com visualizações distintas) ---
     function listaComprasDoContexto(contexto) {
         if (contexto === 'compartilhado') {

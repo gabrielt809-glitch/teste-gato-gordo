@@ -746,6 +746,7 @@
                     <div class="flex items-center gap-3">
                         <p class="font-bold text-sm ${saldoConta >= 0 ? 'text-green-400' : 'text-red-400'}">${fmt(saldoConta)}</p>
                         <button onclick="event.stopPropagation(); openModal('conta', ${i})" class="text-gray-500 text-xs">✎</button>
+                        <button onclick="event.stopPropagation(); excluirConta(${i})" class="text-red-500/50 text-xs">✕</button>
                     </div>
                 </div>
             `;
@@ -1006,6 +1007,38 @@
         mostrarToast(`${fmt(valor)} resgatado de "${m.nome}"`);
     };
 
+    window.excluirConta = function(idx) {
+        const p = perfil();
+        const conta = p.contas[idx];
+        if (!conta) return;
+        const numTransacoes = p.transacoes.filter(t => t.contaId === conta.id || t.contaDestinoId === conta.id).length;
+        const aviso = numTransacoes > 0
+            ? `Excluir a conta "${conta.nome}"? Isso também vai apagar ${numTransacoes} transação(ões) ligada(s) a ela. Essa ação não pode ser desfeita.`
+            : `Excluir a conta "${conta.nome}"?`;
+        if (!confirm(aviso)) return;
+        p.transacoes = p.transacoes.filter(t => t.contaId !== conta.id && t.contaDestinoId !== conta.id);
+        p.contas.splice(idx, 1);
+        salvarPessoal();
+        if (telaAtual === 'detalhe-conta') voltarParaApp(); else renderPessoal();
+        mostrarToast('Conta excluída');
+    };
+
+    window.excluirCartao = function(idx) {
+        const p = perfil();
+        const cartao = p.cartoes[idx];
+        if (!cartao) return;
+        const numTransacoes = p.transacoes.filter(t => t.cartaoId === cartao.id).length;
+        const aviso = numTransacoes > 0
+            ? `Excluir o cartão "${cartao.nome}"? Isso também vai apagar ${numTransacoes} lançamento(s) ligado(s) a ele. Essa ação não pode ser desfeita.`
+            : `Excluir o cartão "${cartao.nome}"?`;
+        if (!confirm(aviso)) return;
+        p.transacoes = p.transacoes.filter(t => t.cartaoId !== cartao.id);
+        p.cartoes.splice(idx, 1);
+        salvarPessoal();
+        if (telaAtual === 'detalhe-cartao') voltarParaApp(); else renderPessoal();
+        mostrarToast('Cartão excluído');
+    };
+
     window.excluirMeta = function(idx) {
         if (confirm('Excluir meta?')) {
             perfil().metas.splice(idx, 1);
@@ -1088,7 +1121,13 @@
       const html = `
         <div class="space-y-4 pb-20">
           <div class="glass rounded-2xl p-5">
-            <h2 class="text-xl font-bold">${cartao.nome}</h2>
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold">${cartao.nome}</h2>
+                <div class="flex items-center gap-3">
+                    <button onclick="openModal('cartao', ${idx})" class="text-gray-400 hover:text-amber-400 transition-colors p-1">✎</button>
+                    <button onclick="excluirCartao(${idx})" class="text-gray-400 hover:text-red-400 transition-colors p-1">✕</button>
+                </div>
+            </div>
             <div class="grid grid-cols-2 gap-2 mt-2 text-[10px] text-gray-400 uppercase tracking-wider">
                 <p>Fechamento: Dia ${cartao.diaFechamento}</p>
                 <p>Vencimento: Dia ${cartao.diaVencimento}</p>
@@ -1154,7 +1193,13 @@
         const html = `
             <div class="space-y-4 pb-20">
                 <div class="glass rounded-2xl p-5 text-center">
-                    <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">${conta.tipo}</p>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-gray-400 uppercase tracking-widest">${conta.tipo}</span>
+                        <div class="flex items-center gap-3">
+                            <button onclick="openModal('conta', ${idx})" class="text-gray-400 hover:text-amber-400 transition-colors p-1">✎</button>
+                            <button onclick="excluirConta(${idx})" class="text-gray-400 hover:text-red-400 transition-colors p-1">✕</button>
+                        </div>
+                    </div>
                     <h2 class="text-2xl font-bold mb-2">${conta.nome}</h2>
                     <p class="text-3xl font-bold text-amber-400">${fmt(saldoAtual)}</p>
                 </div>

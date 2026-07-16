@@ -714,8 +714,11 @@
         document.getElementById('resumo-saldo-atual').textContent = fmt(saldoAgregadoAte(corteAtual));
         document.getElementById('resumo-saldo-futuro').textContent = fmt(saldoAgregadoAte(fimMesRef));
 
-        let saldoTotal = p.contas.reduce((s, c) => s + c.saldoInicial, 0);
+        const contasCorrente = p.contas.filter(c => c.tipo === 'corrente');
+        const idsContaCorrente = new Set(contasCorrente.map(c => c.id));
+        let saldoTotal = contasCorrente.reduce((s, c) => s + c.saldoInicial, 0);
         p.transacoes.forEach(t => {
+            if (!idsContaCorrente.has(t.contaId)) return;
             if (t.tipo === 'receita') saldoTotal += t.valor;
             if (t.tipo === 'despesa') saldoTotal -= t.valor;
         });
@@ -1339,7 +1342,6 @@
                     <option value="corrente" ${c.tipo==='corrente'?'selected':''}>Corrente</option>
                     <option value="poupanca" ${c.tipo==='poupanca'?'selected':''}>Poupança</option>
                     <option value="investimento" ${c.tipo==='investimento'?'selected':''}>Investimento</option>
-                    <option value="dinheiro" ${c.tipo==='dinheiro'?'selected':''}>Dinheiro</option>
                 </select>
                 <label class="text-xs text-gray-400">Saldo Inicial</label>
                 <input id="f-conta-saldo" type="number" step="0.01" value="${c.saldoInicial}" class="w-full p-3 rounded-xl">

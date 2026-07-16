@@ -817,6 +817,7 @@
 
 
         updateChart(transMes);
+        renderListaCompras('pessoal');
     };
 
     const PALETA_CATEGORIAS = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
@@ -1046,6 +1047,149 @@
             perfil().metas.splice(idx, 1);
             salvarPessoal(); renderPessoal();
         }
+    };
+
+    // --- Lista de Compras (Pessoal e Compartilhado, com visualizações distintas) ---
+    function listaComprasDoContexto(contexto) {
+        if (contexto === 'compartilhado') {
+            const g = grupoAtivo();
+            if (!g.listaCompras) g.listaCompras = [];
+            return g.listaCompras;
+        }
+        const p = perfil();
+        if (!p.listaCompras) p.listaCompras = [];
+        return p.listaCompras;
+    }
+
+    function salvarContextoCompras(contexto) {
+        if (contexto === 'compartilhado') salvarCompart();
+        else salvarPessoal();
+    }
+
+    function rerenderContextoCompras(contexto) {
+        if (contexto === 'compartilhado') renderCompart();
+        else renderPessoal();
+    }
+
+    function renderItemCompraHtml(item, idx, contexto) {
+        const links = item.links || [];
+        return `
+            <div class="card-premium rounded-2xl p-4 ${item.comprado ? 'opacity-50' : ''}">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <input type="checkbox" ${item.comprado ? 'checked' : ''} onchange="toggleCompradoItemCompra('${contexto}', ${idx})" class="w-5 h-5 rounded-lg border-white/10 bg-white/5 text-amber-500 shrink-0">
+                        <div class="min-w-0">
+                            <p class="font-medium text-sm truncate ${item.comprado ? 'line-through text-gray-500' : ''}">${item.nome}</p>
+                            ${contexto === 'compartilhado' && item.pessoa ? `<p class="text-[10px] text-gray-500">Adicionado por ${item.pessoa}</p>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="abrirAdicionarLink('${contexto}', ${idx})" class="text-gray-500 hover:text-amber-400 transition-colors p-1 text-sm">🔗+</button>
+                        <button onclick="excluirItemCompra('${contexto}', ${idx})" class="text-gray-600 hover:text-red-400 transition-colors p-1">✕</button>
+                    </div>
+                </div>
+                ${links.length > 0 ? `
+                    <div class="flex flex-wrap gap-2 mt-3 pl-8">
+                        ${links.map((l, li) => `
+                            <div class="flex items-center gap-1 bg-white/5 rounded-lg pl-2 pr-1 py-1 max-w-full">
+                                <a href="${l.url}" target="_blank" rel="noopener" class="text-[11px] text-amber-400 underline truncate max-w-[160px]">🔗 ${l.titulo || `Link ${li + 1}`}</a>
+                                <button onclick="removerLinkItemCompra('${contexto}', ${idx}, ${li})" class="text-gray-500 hover:text-red-400 text-[10px] px-1 shrink-0">✕</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    function renderListaCompras(contexto) {
+        const lista = listaComprasDoContexto(contexto);
+        const el = document.getElementById(contexto === 'compartilhado' ? 'lista-compras-compart' : 'lista-compras-pessoal');
+        if (!el) return;
+        // Itens não comprados primeiro, mantendo a ordem de criação dentro de cada grupo
+        const ordenada = lista.map((item, idx) => ({ item, idx })).sort((a, b) => (a.item.comprado === b.item.comprado) ? 0 : (a.item.comprado ? 1 : -1));
+        el.innerHTML = ordenada.map(({ item, idx }) => renderItemCompraHtml(item, idx, contexto)).join('') || '<p class="text-gray-500 text-center py-4 text-sm">Lista vazia</p>';
+    }
+
+    window.abrirNovoItemCompra = function(contexto) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        let selectPessoaHtml = '';
+        if (contexto === 'compartilhado') {
+            const g = grupoAtivo();
+            if (g.pessoas && g.pessoas.length) {
+                selectPessoaHtml = `
+                    <label class="text-xs text-gray-400">Quem está adicionando?</label>
+                    <select id="f-compra-pessoa" class="w-full p-3 rounded-xl mb-3 mt-1">
+                        <option value="">Não informar</option>
+                        ${g.pessoas.map(ps => `<option value="${ps.nome}">${ps.nome}</option>`).join('')}
+                    </select>
+                `;
+            }
+        }
+        content.innerHTML = `
+            <h3 class="text-lg font-bold mb-4">Novo Item</h3>
+            <label class="text-xs text-gray-400">O que precisa comprar?</label>
+            <input id="f-compra-nome" placeholder="Ex: Arroz, Detergente..." class="w-full p-3 rounded-xl mb-3 mt-1">
+            ${selectPessoaHtml}
+            <button onclick="salvarNovoItemCompra('${contexto}')" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl">Adicionar</button>
+        `;
+        setTimeout(() => document.getElementById('f-compra-nome')?.focus(), 100);
+    };
+
+    window.salvarNovoItemCompra = function(contexto) {
+        const nome = document.getElementById('f-compra-nome').value.trim();
+        if (!nome) return;
+        const pessoaEl = document.getElementById('f-compra-pessoa');
+        const pessoa = pessoaEl ? pessoaEl.value : null;
+        const lista = listaComprasDoContexto(contexto);
+        lista.push({ id: Date.now(), nome, comprado: false, links: [], pessoa: pessoa || null });
+        salvarContextoCompras(contexto);
+        closeModal();
+        rerenderContextoCompras(contexto);
+        mostrarToast('Item adicionado à lista');
+    };
+
+    window.toggleCompradoItemCompra = function(contexto, idx) {
+        const lista = listaComprasDoContexto(contexto);
+        if (!lista[idx]) return;
+        lista[idx].comprado = !lista[idx].comprado;
+        salvarContextoCompras(contexto);
+        rerenderContextoCompras(contexto);
+    };
+
+    window.excluirItemCompra = function(contexto, idx) {
+        const lista = listaComprasDoContexto(contexto);
+        if (!lista[idx]) return;
+        if (!confirm(`Remover "${lista[idx].nome}" da lista?`)) return;
+        lista.splice(idx, 1);
+        salvarContextoCompras(contexto);
+        rerenderContextoCompras(contexto);
+    };
+
+    window.abrirAdicionarLink = function(contexto, idx) {
+        const lista = listaComprasDoContexto(contexto);
+        const item = lista[idx];
+        if (!item) return;
+        const url = prompt(`Colar o link pra "${item.nome}":`);
+        if (!url || !url.trim()) return;
+        let urlFinal = url.trim();
+        if (!/^https?:\/\//i.test(urlFinal)) urlFinal = 'https://' + urlFinal;
+        const titulo = (prompt('Nome curto pra esse link (opcional):', '') || '').trim();
+        if (!item.links) item.links = [];
+        item.links.push({ id: Date.now(), url: urlFinal, titulo });
+        salvarContextoCompras(contexto);
+        rerenderContextoCompras(contexto);
+    };
+
+    window.removerLinkItemCompra = function(contexto, itemIdx, linkIdx) {
+        const lista = listaComprasDoContexto(contexto);
+        const item = lista[itemIdx];
+        if (!item || !item.links) return;
+        item.links.splice(linkIdx, 1);
+        salvarContextoCompras(contexto);
+        rerenderContextoCompras(contexto);
     };
 
     window.exportarCSV = function() {
@@ -2037,6 +2181,8 @@
                 </div>
             `;
         }).join('') || '<p class="text-gray-500 text-center py-2">Nenhuma conta este mês</p>';
+
+        renderListaCompras('compartilhado');
     }
     
     window.togglePagoContaCompart = function(idx) {

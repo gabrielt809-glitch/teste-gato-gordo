@@ -38,7 +38,7 @@ input, select, textarea {
   border: 1px solid rgba(255,255,255,0.1) !important;
   color: #fff !important;
   transition: all 0.2s;
-  font-size: 0.875rem;
+  font-size: 1rem; /* 16px: evita o zoom automático do iOS ao focar no campo */
 }
 input:focus, select:focus, textarea:focus {
   border-color: #F97316 !important;
@@ -97,12 +97,16 @@ button:active { transform: scale(0.96); }
   display: block;
   margin-bottom: 0.25rem;
 }
+.modal-content h3 {
+  padding-right: 1.75rem;
+  line-height: 1.3;
+}
 input[type="date"] {
   max-width: 100% !important;
   width: 100% !important;
   box-sizing: border-box;
   padding: 0.5rem !important;
-  font-size: 0.8rem !important;
+  font-size: 1rem !important;
   color-scheme: dark;
 }
 .login-overlay {

@@ -398,7 +398,7 @@
 
     window.onboardingNomeContinuar = function() {
         const nome = document.getElementById('new-perfil-nome').value.trim();
-        if (!nome) return alert('Digite seu nome');
+        if (!nome) return mostrarAlerta('Digite seu nome');
         onboardingNomeTemp = nome;
         mostrarEtapaSenhaOnboarding();
     };
@@ -919,7 +919,7 @@
     window.abrirGuardarMeta = function(idx) {
         const p = perfil();
         const m = p.metas[idx];
-        if (!p.contas.length) return alert('Cadastre uma conta primeiro');
+        if (!p.contas.length) return mostrarAlerta('Cadastre uma conta primeiro');
         const modal = document.getElementById('modal');
         const content = document.getElementById('modal-content-inner');
         modal.classList.remove('hidden');
@@ -941,7 +941,7 @@
         const m = p.metas[idx];
         const valor = parseFloat(document.getElementById('f-meta-valor').value);
         const contaId = parseInt(document.getElementById('f-meta-conta').value);
-        if (!valor || valor <= 0 || !contaId) return alert('Preencha os campos corretamente');
+        if (!valor || valor <= 0 || !contaId) return mostrarAlerta('Preencha os campos corretamente');
 
         p.transacoes.push({
             id: Date.now(),
@@ -965,7 +965,7 @@
         const p = perfil();
         const m = p.metas[idx];
         if (m.atual <= 0) return mostrarToast('Essa meta ainda não tem saldo pra resgatar');
-        if (!p.contas.length) return alert('Cadastre uma conta primeiro');
+        if (!p.contas.length) return mostrarAlerta('Cadastre uma conta primeiro');
         const modal = document.getElementById('modal');
         const content = document.getElementById('modal-content-inner');
         modal.classList.remove('hidden');
@@ -987,8 +987,8 @@
         const m = p.metas[idx];
         const valor = parseFloat(document.getElementById('f-meta-valor-resgate').value);
         const contaId = parseInt(document.getElementById('f-meta-conta-resgate').value);
-        if (!valor || valor <= 0 || !contaId) return alert('Preencha os campos corretamente');
-        if (valor > m.atual) return alert('Esse valor é maior do que o disponível na meta');
+        if (!valor || valor <= 0 || !contaId) return mostrarAlerta('Preencha os campos corretamente');
+        if (valor > m.atual) return mostrarAlerta('Esse valor é maior do que o disponível na meta');
 
         p.transacoes.push({
             id: Date.now(),
@@ -1016,13 +1016,14 @@
         const aviso = numTransacoes > 0
             ? `Excluir a conta "${conta.nome}"? Isso também vai apagar ${numTransacoes} transação(ões) ligada(s) a ela. Essa ação não pode ser desfeita.`
             : `Excluir a conta "${conta.nome}"?`;
-        if (!confirm(aviso)) return;
-        p.transacoes = p.transacoes.filter(t => t.contaId !== conta.id && t.contaDestinoId !== conta.id);
-        p.contas.splice(idx, 1);
-        salvarPessoal();
-        if (telaAtual === 'detalhe-conta') voltarParaApp();
-        renderPessoal();
-        mostrarToast('Conta excluída');
+        mostrarConfirmacao(aviso, () => {
+            p.transacoes = p.transacoes.filter(t => t.contaId !== conta.id && t.contaDestinoId !== conta.id);
+            p.contas.splice(idx, 1);
+            salvarPessoal();
+            if (telaAtual === 'detalhe-conta') voltarParaApp();
+            renderPessoal();
+            mostrarToast('Conta excluída');
+        }, { titulo: 'Excluir conta', perigo: true, textoConfirmar: 'Excluir' });
     };
 
     window.excluirCartao = function(idx) {
@@ -1033,20 +1034,21 @@
         const aviso = numTransacoes > 0
             ? `Excluir o cartão "${cartao.nome}"? Isso também vai apagar ${numTransacoes} lançamento(s) ligado(s) a ele. Essa ação não pode ser desfeita.`
             : `Excluir o cartão "${cartao.nome}"?`;
-        if (!confirm(aviso)) return;
-        p.transacoes = p.transacoes.filter(t => t.cartaoId !== cartao.id);
-        p.cartoes.splice(idx, 1);
-        salvarPessoal();
-        if (telaAtual === 'detalhe-cartao') voltarParaApp();
-        renderPessoal();
-        mostrarToast('Cartão excluído');
+        mostrarConfirmacao(aviso, () => {
+            p.transacoes = p.transacoes.filter(t => t.cartaoId !== cartao.id);
+            p.cartoes.splice(idx, 1);
+            salvarPessoal();
+            if (telaAtual === 'detalhe-cartao') voltarParaApp();
+            renderPessoal();
+            mostrarToast('Cartão excluído');
+        }, { titulo: 'Excluir cartão', perigo: true, textoConfirmar: 'Excluir' });
     };
 
     window.excluirMeta = function(idx) {
-        if (confirm('Excluir meta?')) {
+        mostrarConfirmacao('Excluir esta meta?', () => {
             perfil().metas.splice(idx, 1);
             salvarPessoal(); renderPessoal();
-        }
+        }, { perigo: true, textoConfirmar: 'Excluir' });
     };
 
     // --- Calculadora (atalho no cabeçalho) ---
@@ -1273,25 +1275,28 @@
     window.excluirItemCompra = function(contexto, idx) {
         const lista = listaComprasDoContexto(contexto);
         if (!lista[idx]) return;
-        if (!confirm(`Remover "${lista[idx].nome}" da lista?`)) return;
-        lista.splice(idx, 1);
-        salvarContextoCompras(contexto);
-        rerenderContextoCompras(contexto);
+        mostrarConfirmacao(`Remover "${lista[idx].nome}" da lista?`, () => {
+            lista.splice(idx, 1);
+            salvarContextoCompras(contexto);
+            rerenderContextoCompras(contexto);
+        }, { perigo: true, textoConfirmar: 'Remover' });
     };
 
     window.abrirAdicionarLink = function(contexto, idx) {
         const lista = listaComprasDoContexto(contexto);
         const item = lista[idx];
         if (!item) return;
-        const url = prompt(`Colar o link pra "${item.nome}":`);
-        if (!url || !url.trim()) return;
-        let urlFinal = url.trim();
-        if (!/^https?:\/\//i.test(urlFinal)) urlFinal = 'https://' + urlFinal;
-        const titulo = (prompt('Nome curto pra esse link (opcional):', '') || '').trim();
-        if (!item.links) item.links = [];
-        item.links.push({ id: Date.now(), url: urlFinal, titulo });
-        salvarContextoCompras(contexto);
-        rerenderContextoCompras(contexto);
+        mostrarPrompt(`Colar o link pra "${item.nome}":`, '', (url) => {
+            if (!url || !url.trim()) return;
+            let urlFinal = url.trim();
+            if (!/^https?:\/\//i.test(urlFinal)) urlFinal = 'https://' + urlFinal;
+            mostrarPrompt('Nome curto pra esse link (opcional):', '', (titulo) => {
+                if (!item.links) item.links = [];
+                item.links.push({ id: Date.now(), url: urlFinal, titulo: (titulo || '').trim() });
+                salvarContextoCompras(contexto);
+                rerenderContextoCompras(contexto);
+            }, 'Ex: Site da loja');
+        }, 'https://...');
     };
 
     window.removerLinkItemCompra = function(contexto, itemIdx, linkIdx) {
@@ -1496,8 +1501,8 @@
         const transCartaoMes = p.transacoes.filter(t => t.cartaoId === cartao.id && new Date(t.data).getMonth() === mesRefPessoal && new Date(t.data).getFullYear() === anoRefPessoal);
         const totalFaturaMes = transCartaoMes.reduce((s, t) => s + t.valor, 0);
 
-        if (totalFaturaMes <= 0) return alert('Não há valor para pagar este mês');
-        if (p.contas.length === 0) return alert('Crie uma conta primeiro');
+        if (totalFaturaMes <= 0) return mostrarAlerta('Não há valor para pagar este mês');
+        if (p.contas.length === 0) return mostrarAlerta('Crie uma conta primeiro');
         
         const contaId = p.contas[0].id;
         p.transacoes.push({
@@ -1556,9 +1561,7 @@
             document.getElementById('modal-content-inner').innerHTML = html;
             modal.classList.remove('hidden');
         } else {
-            if (confirm('Deseja excluir esta transação?')) {
-                excluirTransacaoAcao(id, 'apenas');
-            }
+            mostrarConfirmacao('Deseja excluir esta transação?', () => excluirTransacaoAcao(id, 'apenas'), { perigo: true, textoConfirmar: 'Excluir' });
         }
     };
 
@@ -1612,6 +1615,69 @@
       else if (tipo === 'meta') formMeta(content, editId);
     };
     window.closeModal = function() { document.getElementById('modal').classList.add('hidden'); };
+
+    // --- Substitutos de alert/confirm/prompt nativos (mantêm a cara do app) ---
+    window.mostrarAlerta = function(mensagem, titulo) {
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <div class="text-center">
+                ${titulo ? `<h3 class="text-lg font-bold mb-2">${titulo}</h3>` : ''}
+                <p class="text-sm text-gray-300 mb-6 leading-relaxed">${mensagem}</p>
+                <button onclick="closeModal()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl">OK</button>
+            </div>
+        `;
+    };
+
+    let _confirmacaoCallback = null;
+    window.mostrarConfirmacao = function(mensagem, onConfirmar, opcoes) {
+        opcoes = opcoes || {};
+        _confirmacaoCallback = onConfirmar;
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <div class="text-center">
+                ${opcoes.titulo ? `<h3 class="text-lg font-bold mb-2">${opcoes.titulo}</h3>` : ''}
+                <p class="text-sm text-gray-300 mb-6 leading-relaxed">${mensagem}</p>
+                <div class="flex gap-3">
+                    <button onclick="closeModal()" class="flex-1 card-premium py-3 rounded-xl font-bold text-sm text-gray-300">Cancelar</button>
+                    <button onclick="_confirmarAcaoModal()" class="flex-1 ${opcoes.perigo ? 'bg-red-500 text-white' : 'bg-amber-500 text-black'} font-bold py-3 rounded-xl text-sm">${opcoes.textoConfirmar || 'Confirmar'}</button>
+                </div>
+            </div>
+        `;
+    };
+    window._confirmarAcaoModal = function() {
+        const cb = _confirmacaoCallback;
+        _confirmacaoCallback = null;
+        closeModal();
+        if (cb) cb();
+    };
+
+    let _promptCallback = null;
+    window.mostrarPrompt = function(mensagem, valorPadrao, onConfirmar, placeholder) {
+        _promptCallback = onConfirmar;
+        const modal = document.getElementById('modal');
+        const content = document.getElementById('modal-content-inner');
+        modal.classList.remove('hidden');
+        content.innerHTML = `
+            <p class="text-sm text-gray-300 mb-3">${mensagem}</p>
+            <input id="f-prompt-valor" value="${valorPadrao || ''}" placeholder="${placeholder || ''}" class="w-full p-3 rounded-xl mb-3">
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 card-premium py-3 rounded-xl font-bold text-sm text-gray-300">Cancelar</button>
+                <button onclick="_confirmarPromptModal()" class="flex-1 bg-amber-500 text-black font-bold py-3 rounded-xl text-sm">OK</button>
+            </div>
+        `;
+        setTimeout(() => document.getElementById('f-prompt-valor')?.focus(), 100);
+    };
+    window._confirmarPromptModal = function() {
+        const valor = document.getElementById('f-prompt-valor').value;
+        const cb = _promptCallback;
+        _promptCallback = null;
+        closeModal();
+        if (cb) cb(valor);
+    };
 
     // --- FORMULÁRIOS ---
     function formConta(content, editIndex) {
@@ -1893,7 +1959,7 @@
         const valorTotal = parseFloat(document.getElementById('f-trans-valor').value) || 0;
         const dataStr = document.getElementById('f-trans-data').value;
         
-        if (!descricao || valorTotal <= 0) return alert('Preencha os campos corretamente');
+        if (!descricao || valorTotal <= 0) return mostrarAlerta('Preencha os campos corretamente');
 
         if (editId) {
             const t = p.transacoes.find(x => x.id === editId);
@@ -2094,14 +2160,15 @@
     window.renomearGrupo = function(id) {
         const g = gruposCompart.find(x => x.id === id);
         if (!g) return;
-        const novoNome = prompt('Novo nome do grupo:', g.nome);
-        if (novoNome && novoNome.trim()) {
-            g.nome = novoNome.trim();
-            salvarGrupos();
-            syncEnviar();
-            renderCompart();
-            abrirGerenciarGrupos();
-        }
+        mostrarPrompt('Novo nome do grupo:', g.nome, (novoNome) => {
+            if (novoNome && novoNome.trim()) {
+                g.nome = novoNome.trim();
+                salvarGrupos();
+                syncEnviar();
+                renderCompart();
+                abrirGerenciarGrupos();
+            }
+        });
     };
 
     window.confirmarExcluirGrupo = function(id) {
@@ -2111,15 +2178,16 @@
         }
         const g = gruposCompart.find(x => x.id === id);
         if (!g) return;
-        if (!confirm(`Remover o grupo "${g.nome}" deste aparelho? Quem mais estiver nele continua vendo os dados normalmente, só sai daqui.`)) return;
-        gruposCompart = gruposCompart.filter(x => x.id !== id);
-        salvarGrupos();
-        if (grupoAtivoId === id) {
-            grupoAtivoId = gruposCompart[0].id;
-            localStorage.setItem('gato_gordo_grupo_ativo', grupoAtivoId);
-        }
-        renderCompart();
-        abrirGerenciarGrupos();
+        mostrarConfirmacao(`Remover o grupo "${g.nome}" deste aparelho? Quem mais estiver nele continua vendo os dados normalmente, só sai daqui.`, () => {
+            gruposCompart = gruposCompart.filter(x => x.id !== id);
+            salvarGrupos();
+            if (grupoAtivoId === id) {
+                grupoAtivoId = gruposCompart[0].id;
+                localStorage.setItem('gato_gordo_grupo_ativo', grupoAtivoId);
+            }
+            renderCompart();
+            abrirGerenciarGrupos();
+        }, { titulo: 'Remover grupo', perigo: true, textoConfirmar: 'Remover' });
     };
 
     window.abrirConvidarGrupo = function() {
@@ -2186,14 +2254,14 @@
             mostrarToast(`Você já faz parte do grupo "${nomeGrupo}"`);
             return;
         }
-        if (confirm(`Entrar no grupo compartilhado "${nomeGrupo}"?`)) {
+        mostrarConfirmacao(`Entrar no grupo compartilhado "${nomeGrupo}"?`, () => {
             gruposCompart.push({ id: grupoId, nome: nomeGrupo, pessoas: [], contas: [], regra: 'proporcional' });
             grupoAtivoId = grupoId;
             localStorage.setItem('gato_gordo_grupo_ativo', grupoId);
             salvarGrupos();
             mostrarToast(`Entrou no grupo "${nomeGrupo}"!`);
             syncVerificarEBaixar(true);
-        }
+        }, { titulo: 'Convite recebido', textoConfirmar: 'Entrar' });
     }
 
     // --- COMPARTILHADO ---
@@ -2506,9 +2574,7 @@
             document.getElementById('modal-content-inner').innerHTML = html;
             modal.classList.remove('hidden');
         } else {
-            if (confirm('Deseja excluir esta conta?')) {
-                excluirContaCompartAcao(c.id, 'apenas');
-            }
+            mostrarConfirmacao('Deseja excluir esta conta?', () => excluirContaCompartAcao(c.id, 'apenas'), { perigo: true, textoConfirmar: 'Excluir' });
         }
     };
 

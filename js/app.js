@@ -170,7 +170,7 @@
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-2">Sincronização Compartilhada</h3>
             <p class="text-xs text-gray-500 mb-4">Cole aqui o link do Apps Script gerado a partir da planilha do Google Sheets. Esse mesmo link deve ser colado no aparelho da outra pessoa pra sincronizar os dois.</p>
-            <input id="f-sync-url" value="${syncUrl || ''}" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 rounded-xl mb-3 text-xs">
+            <input id="f-sync-url" value="${syncUrl || ''}" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 rounded-xl mb-3">
             <button onclick="salvarConfigSync()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mb-2">Salvar e Sincronizar</button>
             ${syncUrl ? `
             <button onclick="copiarLinkConvite()" class="w-full bg-white/5 text-xs font-bold py-3 rounded-xl mb-2">📋 Copiar link para convidar</button>

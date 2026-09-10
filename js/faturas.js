@@ -56,6 +56,8 @@
         if (!account) throw new Error('Conta de pagamento não encontrada.');
         const valueCents = cents(amount);
         if (valueCents <= 0) throw new Error('Informe um valor de pagamento maior que zero.');
+        if (root.GatoFinance?.parseDate) root.GatoFinance.parseDate(date);
+        else if (typeof date !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) throw new Error('Informe uma data válida.');
         const summary = invoiceSummary(profile, cardId, month, year);
         if (valueCents > cents(summary.open)) throw new Error('O pagamento não pode ser maior que o valor em aberto da fatura.');
         const payment = {
@@ -74,7 +76,26 @@
         return payment;
     }
 
-    root.GatoFaturas = { parseMonthLabel, invoiceTransactions, payments, invoiceSummary, applyPayment, meses: MESES };
+    function removePayment(profile, paymentId) {
+        const index = (profile?.transacoes || []).findIndex(t => t.id === paymentId && t.tipo === 'pagamento_fatura');
+        if (index < 0) throw new Error('Pagamento de fatura não encontrado.');
+        const payment = profile.transacoes[index];
+        const card = (profile.cartoes || []).find(c => c.id === payment.cartaoId);
+        if (!card) throw new Error('Cartão do pagamento não encontrado.');
+        profile.transacoes.splice(index, 1);
+        card.utilizado = (cents(card.utilizado || 0) + cents(payment.valor || 0)) / 100;
+        return payment;
+    }
+
+    root.GatoFaturas = {
+        parseMonthLabel,
+        invoiceTransactions,
+        payments,
+        invoiceSummary,
+        applyPayment,
+        removePayment,
+        meses: MESES
+    };
 
     if (typeof document === 'undefined') return;
 
@@ -149,4 +170,69 @@
     }
 
     root.pagarFatura = openPaymentModal;
+
+    // Pagamentos de fatura não são despesas comuns do cartão. Ao removê-los,
+    // o limite utilizado precisa voltar a subir (a operação inversa de pagar).
+    const confirmarExcluirOriginal = root.confirmarExcluirTransacao;
+    if (typeof confirmarExcluirOriginal === 'function') {
+        root.confirmarExcluirTransacao = function (id) {
+            const profile = getProfile();
+            const payment = profile?.transacoes?.find(t => t.id === id && t.tipo === 'pagamento_fatura');
+            if (!payment) return confirmarExcluirOriginal(id);
+
+            root.mostrarConfirmacao(
+                `Excluir o pagamento de ${payment.descricao}? O valor será devolvido ao limite utilizado do cartão e a saída da conta deixará de aparecer no saldo.`,
+                () => {
+                    try {
+                        const fresh = getProfile();
+                        const removed = removePayment(fresh, id);
+                        saveProfile(fresh);
+                        root.renderPessoal();
+                        const cardIndex = fresh.cartoes.findIndex(c => c.id === removed.cartaoId);
+                        if (cardIndex >= 0 && typeof root.abrirTelaCartao === 'function') root.abrirTelaCartao(cardIndex);
+                        root.mostrarToast('Pagamento excluído e limite do cartão restaurado.');
+                    } catch (error) { root.mostrarAlerta(error.message); }
+                },
+                { titulo: 'Excluir pagamento', perigo: true, textoConfirmar: 'Excluir' }
+            );
+        };
+    }
+
+    // Um pagamento de fatura não pode ser editado como uma transação comum:
+    // seus campos têm semântica própria (fatura, cartão e conta de pagamento).
+    const openModalOriginal = root.openModal;
+    if (typeof openModalOriginal === 'function') {
+        root.openModal = function (tipo, editId, ...rest) {
+            if (tipo === 'transacao' && editId !== null && editId !== undefined) {
+                const profile = getProfile();
+                const payment = profile?.transacoes?.find(t => t.id === editId && t.tipo === 'pagamento_fatura');
+                if (payment) {
+                    const card = profile.cartoes.find(c => c.id === payment.cartaoId);
+                    const account = profile.contas.find(c => c.id === payment.contaId);
+                    const modal = document.getElementById('modal');
+                    const content = document.getElementById('modal-content-inner');
+                    modal.classList.remove('hidden');
+                    content.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="text-center">
+                                <div class="w-14 h-14 rounded-2xl bg-green-500/10 text-green-400 flex items-center justify-center mx-auto mb-3 text-2xl">✓</div>
+                                <h3 class="text-lg font-bold">Pagamento de fatura</h3>
+                                <p class="text-xs text-gray-500 mt-1">${payment.descricao}</p>
+                            </div>
+                            <div class="card-premium rounded-xl p-4 space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-500">Valor</span><strong>R$ ${Number(payment.valor).toFixed(2).replace('.', ',')}</strong></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Cartão</span><span>${card?.nome || '—'}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Conta</span><span>${account?.nome || '—'}</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Data</span><span>${payment.data}</span></div>
+                            </div>
+                            <button onclick="confirmarExcluirTransacao(${payment.id})" class="w-full bg-red-500/10 text-red-400 font-bold py-3 rounded-xl">Excluir pagamento</button>
+                            <button onclick="closeModal()" class="w-full py-2 text-gray-500 text-xs">Fechar</button>
+                        </div>
+                    `;
+                    return;
+                }
+            }
+            return openModalOriginal(tipo, editId, ...rest);
+        };
+    }
 })(globalThis);

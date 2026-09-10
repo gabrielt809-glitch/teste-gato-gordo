@@ -120,7 +120,24 @@
                 const faturas = document.createElement('script'); faturas.src = 'js/faturas.js';
                 faturas.onload = () => {
                     const faturasCiclos = document.createElement('script'); faturasCiclos.src = 'js/faturas-ciclos.js';
-                    faturasCiclos.onerror = () => console.warn('Módulo de integração de ciclos não carregou; faturas continuam disponíveis.');
+                    faturasCiclos.onload = () => {
+                        const parcelamentos = document.createElement('script'); parcelamentos.src = 'js/parcelamentos.js';
+                        parcelamentos.onload = () => {
+                            const projecao = document.createElement('script'); projecao.src = 'js/projecao-faturas.js';
+                            projecao.onerror = () => console.warn('Módulo de projeção de faturas não carregou; o restante do cartão continua disponível.');
+                            document.body.appendChild(projecao);
+                        };
+                        parcelamentos.onerror = () => console.warn('Módulo de parcelamentos não carregou; edição padrão continua disponível.');
+                        document.body.appendChild(parcelamentos);
+                    };
+                    faturasCiclos.onerror = () => {
+                        const parcelamentos = document.createElement('script'); parcelamentos.src = 'js/parcelamentos.js';
+                        parcelamentos.onload = () => {
+                            const projecao = document.createElement('script'); projecao.src = 'js/projecao-faturas.js';
+                            document.body.appendChild(projecao);
+                        };
+                        document.body.appendChild(parcelamentos);
+                    };
                     document.body.appendChild(faturasCiclos);
                 };
                 faturas.onerror = () => console.warn('Módulo de faturas não carregou; o restante do app continua disponível.');

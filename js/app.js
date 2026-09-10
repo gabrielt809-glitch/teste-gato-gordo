@@ -6,9 +6,10 @@
     let detalheCartaoId = null;
 
     // --- Sincronização Compartilhada (Google Sheets via Apps Script) ---
-    let syncUrl = localStorage.getItem('gato_gordo_sync_url') || 'https://script.google.com/macros/s/AKfycbyS7pjLcrMj9pnJjfw_uwqFsGCY468_qUN3-k9CinkJ1thGZYNryo_rgcH9u5UxUe6nbw/exec';
+    let syncUrl = localStorage.getItem('gato_gordo_sync_paused') === 'true' ? '' : localStorage.getItem('gato_gordo_sync_url') || 'https://script.google.com/macros/s/AKfycbyS7pjLcrMj9pnJjfw_uwqFsGCY468_qUN3-k9CinkJ1thGZYNryo_rgcH9u5UxUe6nbw/exec';
     let syncIntervalId = null;
     let syncEmAndamento = false;
+    let syncEnviosPendentes = 0;
     
     // Função Centralizada para Controle de UI
     function updateUIState(novaTela) {
@@ -102,6 +103,7 @@
     async function syncEnviar() {
         const g = grupoAtivo();
         if (!syncUrl || !g) return;
+        syncEnviosPendentes++;
         try {
             const resp = await fetch(syncUrl, {
                 method: 'POST',
@@ -114,6 +116,8 @@
             }
         } catch (e) {
             console.warn('Falha ao sincronizar (enviar):', e);
+        } finally {
+            syncEnviosPendentes--;
         }
     }
 
@@ -183,6 +187,7 @@
         if (!url) return;
         syncUrl = url;
         localStorage.setItem('gato_gordo_sync_url', url);
+        localStorage.removeItem('gato_gordo_sync_paused');
         closeModal();
         mostrarToast('Sincronização configurada! Buscando dados...');
         syncVerificarEBaixar(true);
@@ -197,6 +202,7 @@
     window.desconectarSync = function() {
         syncUrl = null;
         localStorage.removeItem('gato_gordo_sync_url');
+        localStorage.setItem('gato_gordo_sync_paused', 'true');
         pararPollingSync();
         closeModal();
         mostrarToast('Sincronização desconectada');
@@ -370,6 +376,7 @@
                         <input id="new-perfil-nome" placeholder="Ex: Gabriel" class="w-full p-4 rounded-2xl bg-white/5 border border-white/10 focus:border-amber-500 transition-all outline-none">
                     </div>
                     <button onclick="onboardingNomeContinuar()" class="w-full bg-amber-500 text-black font-bold py-4 rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-transform">Continuar</button>
+                    <button onclick="restaurarBackup()" class="w-full text-amber-400 font-bold py-3">Já tenho um backup</button>
                 </div>
             `;
             document.getElementById('new-perfil-nome')?.focus();
@@ -502,15 +509,23 @@
         setTimeout(() => toast.remove(), 4000);
     }
 
-    window.backupNuvem = function() {
-        const dados = { perfis, grupos: gruposCompart };
-        const blob = new Blob([JSON.stringify(dados)], { type: 'application/json' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `backup_gato_gordo_${new Date().getTime()}.json`;
-        link.click();
-        mostrarToast('☁️ Backup baixado com sucesso!');
-    };
+    GatoBackup.init({
+        snapshot: () => ({ perfis, grupos: gruposCompart, settings: {
+            activeGroupId: grupoAtivoId,
+            syncUrl: syncUrl || localStorage.getItem('gato_gordo_sync_url') || '',
+            syncTimestamps,
+            syncPaused: localStorage.getItem('gato_gordo_sync_paused') === 'true'
+        }}),
+        notify: mostrarToast,
+        pause: () => {
+            if (syncEmAndamento || syncEnviosPendentes) throw new Error('Aguarde a sincronização terminar e tente restaurar novamente.');
+            const previousUrl = syncUrl;
+            const polling = Boolean(syncIntervalId);
+            pararPollingSync();
+            syncUrl = '';
+            return () => { syncUrl = previousUrl; if (polling) iniciarPollingSync(); };
+        }
+    });
 
     window.mudarRegraCompart = function(regra) {
         grupoAtivo().regra = regra;
@@ -611,9 +626,19 @@
                     <button onclick="backupNuvem()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
                         <span class="text-xl">☁️</span>
                         <div class="text-left">
-                            <p class="font-bold text-sm">Backup em Nuvem</p>
-                            <p class="text-[10px] text-gray-500">Baixar cópia de segurança dos dados</p>
+                            <p class="font-bold text-sm">Baixar backup completo</p>
+                            <p class="text-[10px] text-gray-500">Perfis, grupos e configurações • arquivo contém dados e PIN</p>
                         </div>
+                    </button>
+                    <button onclick="restaurarBackup()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">📥</span>
+                        <div class="text-left"><p class="font-bold text-sm">Restaurar backup</p>
+                        <p class="text-[10px] text-gray-500">Recuperar dados de um arquivo JSON</p></div>
+                    </button>
+                    <button onclick="baixarBackupAnterior()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">↩️</span>
+                        <div class="text-left"><p class="font-bold text-sm">Baixar cópia anterior à restauração</p>
+                        <p class="text-[10px] text-gray-500">Disponível após restaurar um backup neste aparelho</p></div>
                     </button>
                     <button onclick="exportarCSV()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
                         <span class="text-xl">📊</span>
@@ -2704,3 +2729,4 @@
     // Início
     renderLogin();
 })();
+

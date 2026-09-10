@@ -24,7 +24,7 @@ async function boot(values={}) {
   if(node.tagName==='SCRIPT' && node.getAttribute('src')==='js/app.js')node.onerror=null;
   return append(node);
  };
- for(const file of ['js/backup.js','js/storage.js','js/sync-config.js','js/bootstrap.js'])window.eval(read(file));
+ for(const file of ['js/backup.js','js/storage.js','js/sync-config.js','js/finance.js','js/transacoes.js','js/bootstrap.js'])window.eval(read(file));
  await until(()=>window.document.querySelector('script[src="js/app.js"]')||window.document.querySelector('dialog[open]'));
  if(window.document.querySelector('script[src="js/app.js"]'))window.eval(read('js/app.js'));
  return {window,requests,close:async()=>{window.gatoStorage.close();await window.happyDOM.abort();window.close();}};
@@ -69,4 +69,30 @@ test('backup sem grupos pode abrir a área compartilhada',async()=>{
  const app=await boot({gato_gordo_perfis:JSON.stringify([profile]),gato_gordo_grupos:'[]'});
  try{app.window.switchTab('compartilhado');assert.equal(app.window.document.getElementById('tab-compartilhado').classList.contains('hidden'),false);assert.equal(app.requests.length,0);}
  finally{await app.close();}
+});
+function financeProfile() {return {...profile,contas:[{id:1,nome:'Conta',tipo:'corrente',saldoInicial:1000},{id:2,nome:'Reserva',tipo:'poupanca',saldoInicial:0}],cartoes:[{id:3,nome:'Cartão',limite:1000,utilizado:0,diaFechamento:20,diaVencimento:27}],transacoes:[]};}
+function fillTransaction(w,fields) {for(const [field,value] of Object.entries(fields))w.document.getElementById('f-trans-'+field).value=String(value);}
+test('formulário salva parcelamento em conta com total exato e série única',async()=>{
+ const app=await boot({gato_gordo_perfis:JSON.stringify([financeProfile()])});
+ try{
+  const w=app.window;w.openModal('transacao',null,1,null,'despesa');
+  fillTransaction(w,{desc:'Compra',valor:100,data:'2026-01-31',recorrencia:'parcelado','parcelas-num':3});w.salvarTransacao(null);
+  const p=JSON.parse(w.localStorage.getItem('gato_gordo_perfis'))[0];assert.equal(p.transacoes.length,3);assert.deepEqual(p.transacoes.map(t=>t.data),['2026-01-31','2026-02-28','2026-03-31']);assert.equal(new Set(p.transacoes.map(t=>t.serieId)).size,1);assert.equal(p.transacoes.reduce((n,t)=>n+Math.round(t.valor*100),0),10000);
+ }finally{await app.close();}
+});
+test('edição de compra mantém o cartão correto e o tipo de lançamento',async()=>{
+ const p=financeProfile();p.cartoes.push({id:4,nome:'Outro',limite:1000,utilizado:0,diaFechamento:10,diaVencimento:17});p.cartoes[0].utilizado=30;p.transacoes.push({id:500,tipo:'despesa-cartao',cartaoId:3,descricao:'Compra',valor:30,data:'2026-01-31'});
+ const app=await boot({gato_gordo_perfis:JSON.stringify([p])});
+ try{
+  const w=app.window;w.openModal('transacao',500);assert.equal(w.document.getElementById('f-trans-tipo').value,'cartao');assert.equal(w.document.getElementById('f-trans-cartao').value,'3');
+  fillTransaction(w,{valor:40});w.salvarTransacao(500);
+  const saved=JSON.parse(w.localStorage.getItem('gato_gordo_perfis'))[0];assert.equal(saved.transacoes[0].tipo,'despesa-cartao');assert.equal(saved.transacoes[0].cartaoId,3);assert.equal(saved.transacoes[0].contaId,null);assert.equal(saved.cartoes[0].utilizado,40);assert.equal(saved.cartoes[1].utilizado,0);
+ }finally{await app.close();}
+});
+test('formulário rejeita transferência para a mesma conta sem salvar dados',async()=>{
+ const original=JSON.stringify([financeProfile()]);const app=await boot({gato_gordo_perfis:original});
+ try{
+  const w=app.window;w.openModal('transacao',null,1,null,'transferencia');fillTransaction(w,{desc:'Mover',valor:10,data:'2026-09-10','conta-dest':1});w.salvarTransacao(null);
+  assert.equal(w.localStorage.getItem('gato_gordo_perfis'),original);assert.match(w.document.getElementById('modal-content-inner').textContent,/diferente da origem/);
+ }finally{await app.close();}
 });

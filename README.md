@@ -79,7 +79,9 @@ no cache do Service Worker.
 - `js/bootstrap.js`: inicialização e telas de recuperação.
 - `js/sync-config.js`: validação e leitura da conexão explicitamente configurada.
 - `js/pwa.js` e `sw.js`: experiência offline e cache.
-- `js/app.js`: lógica financeira e telas existentes; extração gradual em andamento.
+- `js/finance.js`: datas locais, divisão em centavos e cálculo unificado de saldos.
+- `js/transacoes.js`: validação e geração de lançamentos únicos, recorrentes e parcelados.
+- `js/app.js`: telas e integração com as regras; extração gradual em andamento.
 
 ## Testes
 
@@ -97,5 +99,28 @@ Os testes de interface usam um DOM simulado e não baixam recursos externos.
 A validação visual e o funcionamento real do Service Worker em Safari/iPhone
 continuam pendentes; o download do Chromium de teste foi bloqueado neste ambiente.
 
-Validação desta entrega: 35 testes automatizados passaram, incluindo seis cenários
+Validação desta entrega: 51 testes automatizados passaram, incluindo nove cenários
 de interface em DOM simulado; verificações de sintaxe também passaram.
+
+## Lançamentos e saldos
+
+Os parcelamentos novos dividem o total em centavos; eventuais centavos restantes
+ficam nas primeiras parcelas. Use de 1 a 120 parcelas, cada uma de pelo menos um
+centavo. As datas mensais usam o dia original como referência: 31 de janeiro gera
+28/29 de fevereiro e 31 de março. Recorrências bancárias mantêm 24 ocorrências;
+cartões aceitam compras únicas ou parceladas nesta etapa.
+
+Lançamentos de uma série compartilham um identificador, e os identificadores novos
+não colidem com os já presentes no perfil. A validação exige data, valor, conta ou
+cartão válidos e contas diferentes nas transferências. A edição de uma compra de
+cartão preserva o tipo `despesa-cartao` e o cartão escolhido.
+
+**Saldo em contas hoje** soma todas as contas cadastradas e considera somente
+lançamentos até a data local atual. Transferências saem da origem e entram no destino,
+sem alterar o total. O resumo mensal separa abertura, saldo até o menor valor entre
+hoje e o fim do mês, e fechamento previsto com os lançamentos já cadastrados.
+Esses números se baseiam em datas de lançamentos; não representam conciliação bancária.
+O saldo em contas não é patrimônio líquido: não deduz automaticamente faturas não
+pagas nem inclui metas separadas. A previsão ainda não gera pagamentos de cartão
+automaticamente. O fluxo de liquidação/fechamento de faturas será tratado em etapa
+própria; esta entrega não reescreve transações antigas ou parcelas já cadastradas.

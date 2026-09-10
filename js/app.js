@@ -746,48 +746,16 @@
             return d.getMonth() === mesRefPessoal && d.getFullYear() === anoRefPessoal;
         });
 
-        // Saldo Inicial / Atual / Futuro Previsto do mês em navegação
-        const saldoBaseContas = p.contas.reduce((s, c) => s + c.saldoInicial, 0);
-        function saldoAgregadoAte(dataLimite) {
-            let saldo = saldoBaseContas;
-            p.transacoes.forEach(t => {
-                const d = new Date(t.data + 'T00:00:00');
-                if (d <= dataLimite) {
-                    if (t.tipo === 'receita') saldo += t.valor;
-                    if (t.tipo === 'despesa') saldo -= t.valor;
-                }
-            });
-            return saldo;
-        }
-        const inicioMesRef = new Date(anoRefPessoal, mesRefPessoal, 1);
-        const fimMesRef = new Date(anoRefPessoal, mesRefPessoal + 1, 0, 23, 59, 59, 999);
-        const hoje = new Date(); hoje.setHours(23,59,59,999);
-        const corteAtual = hoje < inicioMesRef ? new Date(inicioMesRef.getTime() - 1) : (hoje > fimMesRef ? fimMesRef : hoje);
-
-        document.getElementById('resumo-saldo-inicial').textContent = fmt(saldoAgregadoAte(new Date(inicioMesRef.getTime() - 1)));
-        document.getElementById('resumo-saldo-atual').textContent = fmt(saldoAgregadoAte(corteAtual));
-        document.getElementById('resumo-saldo-futuro').textContent = fmt(saldoAgregadoAte(fimMesRef));
-
-        const contasCorrente = p.contas.filter(c => c.tipo === 'corrente');
-        const idsContaCorrente = new Set(contasCorrente.map(c => c.id));
-        let saldoTotal = contasCorrente.reduce((s, c) => s + c.saldoInicial, 0);
-        p.transacoes.forEach(t => {
-            if (!idsContaCorrente.has(t.contaId)) return;
-            if (t.tipo === 'receita') saldoTotal += t.valor;
-            if (t.tipo === 'despesa') saldoTotal -= t.valor;
-        });
-        document.getElementById('patrimonio-total').textContent = fmt(saldoTotal);
+        const hoje = GatoFinance.dateKey();
+        const resumo = GatoFinance.monthSummary(p, anoRefPessoal, mesRefPessoal, hoje);
+        document.getElementById('resumo-saldo-inicial').textContent = fmt(resumo.initial);
+        document.getElementById('resumo-saldo-atual').textContent = fmt(resumo.current);
+        document.getElementById('resumo-saldo-futuro').textContent = fmt(resumo.projected);
+        document.getElementById('patrimonio-total').textContent = fmt(GatoFinance.balance(p, hoje));
 
         const listaContas = document.getElementById('lista-contas');
         listaContas.innerHTML = p.contas.map((c, i) => {
-            let saldoConta = c.saldoInicial;
-            p.transacoes.forEach(t => {
-                if (t.contaId === c.id) {
-                    if (t.tipo === 'receita') saldoConta += t.valor;
-                    if (t.tipo === 'despesa' || t.tipo === 'transferencia') saldoConta -= t.valor;
-                }
-                if (t.tipo === 'transferencia' && t.contaDestinoId === c.id) saldoConta += t.valor;
-            });
+            const saldoConta = GatoFinance.balance(p, hoje, [c.id]);
             return `
                 <div class="card-premium rounded-2xl p-4 flex justify-between items-center cursor-pointer active:scale-95 transition-transform" onclick="abrirTelaConta(${i})">
                     <div class="flex items-center gap-3">
@@ -826,7 +794,7 @@
                     <span class="text-gray-400">Utilizado: <span class="text-white font-bold">${fmt(c.utilizado)}</span></span>
                     <span class="text-gray-400">Limite: ${fmt(c.limite)}</span>
                 </div>
-                <div class="progress-bar"><div class="progress-fill" style="width: ${Math.min((c.utilizado/c.limite)*100, 100)}%; background: ${c.cor || '#f59e0b'}"></div></div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${c.limite > 0 ? Math.min((c.utilizado/c.limite)*100, 100) : 0}%; background: ${c.cor || '#f59e0b'}"></div></div>
             </div>
         `).join('') || '<p class="text-gray-500 text-center py-4">Nenhum cartão cadastrado</p>';
 
@@ -1497,14 +1465,7 @@
         
         const transContaMes = perfil().transacoes.filter(t => (t.contaId === conta.id || t.contaDestinoId === conta.id) && new Date(t.data + 'T00:00:00').getMonth() === mesRefPessoal && new Date(t.data + 'T00:00:00').getFullYear() === anoRefPessoal);
         
-        let saldoAtual = conta.saldoInicial;
-        perfil().transacoes.forEach(t => {
-            if (t.contaId === conta.id) {
-                if (t.tipo === 'receita') saldoAtual += t.valor;
-                if (t.tipo === 'despesa' || t.tipo === 'transferencia') saldoAtual -= t.valor;
-            }
-            if (t.tipo === 'transferencia' && t.contaDestinoId === conta.id) saldoAtual += t.valor;
-        });
+        const saldoAtual = GatoFinance.balance(perfil(), GatoFinance.dateKey(), [conta.id]);
 
         const html = `
             <div class="space-y-4 pb-20">
@@ -1518,6 +1479,7 @@
                     </div>
                     <h2 class="text-2xl font-bold mb-2">${conta.nome}</h2>
                     <p class="text-3xl font-bold text-amber-400">${fmt(saldoAtual)}</p>
+                    <p class="text-xs text-gray-500">Saldo pelos lançamentos até hoje</p>
                 </div>
 
                 <div class="flex items-center justify-between glass rounded-2xl p-3">
@@ -1849,7 +1811,7 @@
         const tipoPadrao = tipoInicial || (contexto === 'cartao' ? 'cartao' : 'despesa');
         const t = editId !== null
             ? p.transacoes.find(x => x.id === editId)
-            : { tipo: tipoPadrao, valor: 0, descricao: '', data: new Date().toISOString().split('T')[0], contaId: contaPre || (p.contas[0]?.id || ''), recorrencia: 'nenhuma' };
+            : { tipo: tipoPadrao, valor: 0, descricao: '', data: GatoFinance.dateKey(), contaId: contaPre || (p.contas[0]?.id || ''), recorrencia: 'nenhuma' };
 
         const opcoesTipo = [
             { valor: 'despesa', label: 'Despesa' },
@@ -1865,7 +1827,7 @@
                     <div id="f-trans-tipo-group" class="${contexto === 'cartao' ? 'hidden' : ''}">
                         <label class="text-xs text-gray-400">Tipo</label>
                         <select id="f-trans-tipo" class="w-full p-3 rounded-xl" onchange="toggleTransDestino()">
-                            ${opcoesTipo.map(op => `<option value="${op.valor}" ${t.tipo===op.valor?'selected':''}>${op.label}</option>`).join('')}
+                            ${opcoesTipo.map(op => `<option value="${op.valor}" ${(t.tipo === 'despesa-cartao' ? 'cartao' : t.tipo)===op.valor?'selected':''}>${op.label}</option>`).join('')}
                         </select>
                     </div>
                     ${contexto === 'cartao' ? `
@@ -1884,9 +1846,10 @@
                         </select>
                     </div>
                 </div>
+                <p class="text-xs text-gray-500">Recorrências geram 24 lançamentos. No parcelamento, o valor total é dividido entre as parcelas.</p>
                 <div id="f-trans-parcelas-group" class="hidden">
                     <label class="text-xs text-gray-400">Número de Parcelas</label>
-                    <input id="f-trans-parcelas-num" type="number" value="1" class="w-full p-3 rounded-xl">
+                    <input id="f-trans-parcelas-num" type="number" min="1" max="120" step="1" value="1" class="w-full p-3 rounded-xl">
                 </div>
                 <div id="f-trans-categoria-group">
                     <label class="text-xs text-gray-400">Categoria</label>
@@ -1915,24 +1878,33 @@
                 <div id="f-trans-cartao-group" class="hidden">
                     <label class="text-xs text-gray-400">Selecionar Cartão</label>
                     <select id="f-trans-cartao" class="w-full p-3 rounded-xl">
-                        ${p.cartoes.map(c => `<option value="${c.id}" ${c.id==cartaoPre?'selected':''}>${c.nome}</option>`).join('')}
+                        ${p.cartoes.map(c => `<option value="${c.id}" ${c.id==(t.cartaoId || cartaoPre)?'selected':''}>${c.nome}</option>`).join('')}
                     </select>
                 </div>
                 ${contexto === 'cartao' ? `<p class="text-xs text-gray-500 -mt-2">💳 Lançamento na fatura de <strong>${p.cartoes.find(c => c.id === cartaoPre)?.nome || ''}</strong></p>` : ''}
                 <div id="f-trans-dest-group" class="hidden">
                     <label class="text-xs text-gray-400">Conta Destino</label>
                     <select id="f-trans-conta-dest" class="w-full p-3 rounded-xl">
-                        ${p.contas.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}
+                        ${p.contas.map(c => `<option value="${c.id}" ${c.id===t.contaDestinoId?'selected':''}>${c.nome}</option>`).join('')}
                     </select>
                 </div>
                 <button onclick="salvarTransacao(${editId})" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2">Salvar</button>
             </div>
         `;
+        document.getElementById('f-trans-tipo').value = t.tipo === 'despesa-cartao' ? 'cartao' : t.tipo;
+        document.getElementById('f-trans-recorrencia').value = 'nenhuma';
+        document.getElementById('f-trans-conta').value = String(t.contaId || contaPre || p.contas[0]?.id || '');
+        document.getElementById('f-trans-cartao').value = String(t.cartaoId || cartaoPre || p.cartoes[0]?.id || '');
+        document.getElementById('f-trans-conta-dest').value = String(t.contaDestinoId || p.contas[0]?.id || '');
         window.toggleTransDestino = function() {
             const tipo = contexto === 'cartao' ? 'cartao' : document.getElementById('f-trans-tipo').value;
             document.getElementById('f-trans-dest-group').classList.toggle('hidden', tipo !== 'transferencia');
             document.getElementById('f-trans-conta-group').classList.toggle('hidden', tipo === 'cartao');
             document.getElementById('f-trans-cartao-group').classList.toggle('hidden', tipo !== 'cartao' || contexto === 'cartao');
+            const recurrence = document.getElementById('f-trans-recorrencia');
+            for (const option of recurrence.options) option.disabled = tipo === 'cartao' && !['nenhuma','parcelado'].includes(option.value);
+            if (recurrence.selectedOptions[0]?.disabled) recurrence.value = 'nenhuma';
+            toggleParcelas();
         };
         window.toggleParcelas = function() {
             const rec = document.getElementById('f-trans-recorrencia').value;
@@ -2007,24 +1979,25 @@
 
     window.salvarTransacao = function(editId) {
         const p = perfil();
-        const tipo = document.getElementById('f-trans-tipo').value;
+        let valores;
         const recorrencia = document.getElementById('f-trans-recorrencia').value;
-        const descricao = document.getElementById('f-trans-desc').value;
-        const valorTotal = parseFloat(document.getElementById('f-trans-valor').value) || 0;
-        const dataStr = document.getElementById('f-trans-data').value;
-        
-        if (!descricao || valorTotal <= 0) return mostrarAlerta('Preencha os campos corretamente');
+        try {
+            valores = GatoTransacoes.normalize(p, {
+                tipo: document.getElementById('f-trans-tipo').value,
+                descricao: document.getElementById('f-trans-desc').value,
+                valor: document.getElementById('f-trans-valor').value,
+                data: document.getElementById('f-trans-data').value,
+                contaId: document.getElementById('f-trans-conta')?.value,
+                cartaoId: document.getElementById('f-trans-cartao')?.value,
+                contaDestinoId: document.getElementById('f-trans-conta-dest')?.value,
+                categoria: document.getElementById('f-trans-categoria')?.value
+            });
+        } catch (error) { return mostrarAlerta(error.message); }
 
         if (editId) {
             const t = p.transacoes.find(x => x.id === editId);
             if (t && t.serieId) {
-                pendingTransacaoValores = {
-                    tipo, descricao, valor: valorTotal, data: dataStr,
-                    contaId: parseInt(document.getElementById('f-trans-conta')?.value),
-                    cartaoId: parseInt(document.getElementById('f-trans-cartao')?.value),
-                    contaDestinoId: parseInt(document.getElementById('f-trans-conta-dest')?.value),
-                    categoria: document.getElementById('f-trans-categoria')?.value,
-                };
+                pendingTransacaoValores = valores;
                 const html = `
                     <div class="space-y-6">
                         <div class="text-center">
@@ -2054,93 +2027,22 @@
                 document.getElementById('modal-content-inner').innerHTML = html;
                 return;
             } else if (t) {
-                salvarTransacaoAcao(editId, 'apenas', {
-                    tipo, descricao, valor: valorTotal, data: dataStr,
-                    contaId: parseInt(document.getElementById('f-trans-conta')?.value),
-                    cartaoId: parseInt(document.getElementById('f-trans-cartao')?.value),
-                    contaDestinoId: parseInt(document.getElementById('f-trans-conta-dest')?.value),
-                    categoria: document.getElementById('f-trans-categoria')?.value,
-                });
+                salvarTransacaoAcao(editId, 'apenas', valores);
                 return;
             }
         }
 
-        let contaIdSalva = null;
-        let cartaoIdSalvo = null;
-
-        if (tipo === 'cartao') {
-            const cartaoId = parseInt(document.getElementById('f-trans-cartao').value);
-            cartaoIdSalvo = cartaoId;
-            const cartaoIdx = p.cartoes.findIndex(c => c.id === cartaoId);
-            const cartao = p.cartoes[cartaoIdx];
-            const isParcelado = recorrencia === 'parcelado';
-            const numParcelas = isParcelado ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 1;
-            const valorParcela = valorTotal / numParcelas;
-            
-            cartao.utilizado += valorTotal;
-            
-            const dataBase = new Date(dataStr + 'T00:00:00');
-            for (let i = 0; i < numParcelas; i++) {
-                const novaData = new Date(dataBase);
-                novaData.setMonth(dataBase.getMonth() + i);
-                    const serieId = Date.now();
-                    p.transacoes.push({
-                        id: Date.now() + i,
-                        serieId: isParcelado ? serieId : null,
-                        tipo: 'despesa-cartao',
-                        descricao: isParcelado ? `${descricao} (${i+1}/${numParcelas})` : descricao,
-                        valor: valorParcela,
-                        data: novaData.toISOString().split('T')[0],
-                        cartaoId: cartaoId,
-                        categoria: document.getElementById('f-trans-categoria')?.value
-                    });
-            }
-        } else {
-            const contaId = parseInt(document.getElementById('f-trans-conta').value);
-            contaIdSalva = contaId;
-            const contaDestinoId = tipo === 'transferencia' ? parseInt(document.getElementById('f-trans-conta-dest').value) : null;
-            
-            if (recorrencia !== 'nenhuma') {
-                const isParcelado = recorrencia === 'parcelado';
-                const numCiclos = isParcelado ? (parseInt(document.getElementById('f-trans-parcelas-num').value) || 1) : 24;
-                const valorCiclo = isParcelado ? (valorTotal / numCiclos) : valorTotal;
-                const dataBase = new Date(dataStr + 'T00:00:00');
-                
-                for (let i = 0; i < numCiclos; i++) {
-                    const novaData = new Date(dataBase);
-                    if (recorrencia === 'semanal') novaData.setDate(dataBase.getDate() + (i * 7));
-                    else if (recorrencia === 'quinzenal') novaData.setDate(dataBase.getDate() + (i * 15));
-                    else novaData.setMonth(dataBase.getMonth() + i);
-                    
-                    const serieId = Date.now();
-                    p.transacoes.push({
-                        id: Date.now() + i,
-                        serieId: serieId,
-                        tipo,
-                        descricao: isParcelado ? `${descricao} (${i+1}/${numParcelas})` : descricao,
-                        valor: valorCiclo,
-                        data: novaData.toISOString().split('T')[0],
-                        contaId,
-                        contaDestinoId,
-                        categoria: document.getElementById('f-trans-categoria').value
-                    });
-                }
-            } else {
-                p.transacoes.push({ 
-                    id: Date.now(), 
-                    tipo, 
-                    descricao, 
-                    valor: valorTotal, 
-                    data: dataStr, 
-                    contaId, 
-                    contaDestinoId,
-                    categoria: document.getElementById('f-trans-categoria').value
-                });
-            }
+        let resultado;
+        try {
+            resultado = GatoTransacoes.create(p, { ...valores, recorrencia, parcelas: document.getElementById('f-trans-parcelas-num')?.value });
+        } catch (error) { return mostrarAlerta(error.message); }
+        p.transacoes.push(...resultado.transactions);
+        if (resultado.cartaoId !== null) {
+            const cartao = p.cartoes.find(c => c.id === resultado.cartaoId);
+            cartao.utilizado = (GatoFinance.cents(cartao.utilizado || 0) + GatoFinance.cents(resultado.cardIncrease)) / 100;
         }
-        
         salvarPessoal(); renderPessoal(); closeModal();
-        atualizarTelaDetalheAposSalvar(contaIdSalva, cartaoIdSalvo);
+        atualizarTelaDetalheAposSalvar(resultado.contaId, resultado.cartaoId);
     };
 
     function renderChipsGrupos() {

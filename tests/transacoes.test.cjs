@@ -33,12 +33,12 @@ const installment = T.create(profile, {
 
 assert.equal(installment.transactions.length, 6);
 assert.equal(installment.transactions.reduce((sum, t) => sum + t.valor, 0), 1200);
-assert.deepEqual(installment.transactions.map(t => t.valor), [200, 200, 200, 200, 200, 200]);
-assert.deepEqual(installment.transactions.map(t => t.data), [
+assert.deepEqual(Array.from(installment.transactions, t => t.valor), [200, 200, 200, 200, 200, 200]);
+assert.deepEqual(Array.from(installment.transactions, t => t.data), [
   '2026-09-30', '2026-10-30', '2026-11-30',
   '2026-12-30', '2027-01-30', '2027-02-28'
 ]);
-assert.equal(installment.transactions.every(t => t.serieId === 5000), true);
+assert.equal(Array.from(installment.transactions).every(t => t.serieId === 5000), true);
 assert.equal(installment.cardIncrease, 1200);
 
 const monthly = T.create(profile, {
@@ -54,7 +54,7 @@ assert.equal(monthly.transactions.length, 24);
 assert.equal(monthly.transactions[0].data, '2026-01-31');
 assert.equal(monthly.transactions[1].data, '2026-02-28');
 assert.equal(monthly.transactions[23].data, '2027-12-31');
-assert.equal(new Set(monthly.transactions.map(t => t.serieId)).size, 1);
+assert.equal(new Set(Array.from(monthly.transactions, t => t.serieId)).size, 1);
 
 const weekly = T.create(profile, {
   tipo: 'receita',
@@ -81,6 +81,6 @@ assert.throws(() => T.create(profile, {
 }), /conta de destino/);
 
 assert.equal(Finance.splitAmount(100, 3).reduce((sum, value) => sum + value, 0), 100);
-assert.deepEqual(Finance.splitAmount(100, 3), [33.34, 33.33, 33.33]);
+assert.deepEqual(Array.from(Finance.splitAmount(100, 3)), [33.34, 33.33, 33.33]);
 
 console.log('transacoes: 17 assertions passed');

@@ -24,7 +24,7 @@
         for (const p of data.perfis) {
             assert(typeof p.nome === 'string' && p.nome.trim(), 'Perfil sem nome.');
             for (const key of ['contas', 'cartoes', 'transacoes', 'metas', 'categorias']) {
-                if (legacy && p[key] === undefined) p[key] = [];
+                if (p[key] === undefined) p[key] = [];
                 records(p[key], key);
             }
             assert(p.senhaAtiva === undefined || typeof p.senhaAtiva === 'boolean', 'Bloqueio do perfil inválido.');
@@ -53,6 +53,10 @@
         return result;
     }
     function restore(storage, input, currentBackup) {
+        const apply = () => restoreValues(storage, input, currentBackup);
+        return typeof storage.batch === 'function' ? storage.batch(apply) : apply();
+    }
+    function restoreValues(storage, input, currentBackup) {
         const data = normalize(input);
         const before = Object.fromEntries(KEYS.map(key => [PREFIX + key, storage.getItem(PREFIX + key)]));
         // Primeiro salva a recuperação; se faltar espaço, nada do app é sobrescrito.
@@ -85,16 +89,27 @@
         document.body.appendChild(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
+    function lastExportLabel(storage) {
+        const raw = storage.getItem('gato_gordo_last_file_backup');
+        const date = new Date(raw || '');
+        return Number.isFinite(date.getTime()) ? 'Última exportação: ' + date.toLocaleString('pt-BR') : 'Nenhum arquivo de backup exportado ainda';
+    }
     function init(options) {
+        const storage = options.storage || localStorage;
         root.backupNuvem = () => {
-            try { download(create(options.snapshot()), 'backup_gato_gordo_v2'); options.notify('Arquivo de backup preparado para salvar.'); }
+            try {
+                download(create(options.snapshot()), 'backup_gato_gordo_v2');
+                try { storage.setItem('gato_gordo_last_file_backup', new Date().toISOString()); } catch (_) {}
+                options.notify('Arquivo de backup preparado para salvar.');
+            }
             catch (e) { options.notify(e.message); }
         };
         root.baixarBackupAnterior = () => {
             try {
-                const saved = JSON.parse(localStorage.getItem(JOURNAL) || 'null');
-                assert(saved?.backup, 'Nenhuma cópia anterior à restauração disponível.');
-                download(saved.backup, 'gato_gordo_antes_da_restauracao');
+                const saved = JSON.parse(storage.getItem(JOURNAL) || 'null');
+                assert(saved?.backup || saved?.before, 'Nenhuma cópia anterior à restauração disponível.');
+                if (saved.backup) download(saved.backup, 'gato_gordo_antes_da_restauracao');
+                else download({ app: 'gato-gordo-raw-recovery', createdAt: new Date().toISOString(), values: saved.before }, 'gato_gordo_recuperacao_bruta');
             } catch (e) { options.notify(e.message); }
         };
         root.restaurarBackup = () => {
@@ -111,8 +126,9 @@
                     if (!confirm(`Restaurar ${data.perfis.length} perfil(is) e ${data.grupos.length} grupo(s)? Isso substituirá os dados deste aparelho. Uma cópia anterior ficará disponível para download. A sincronização ficará pausada até você reconectá-la.`)) return;
                     const currentBackup = create(options.snapshot());
                     const resume = options.pause();
-                    try { restore(localStorage, input, currentBackup); }
+                    try { restore(storage, input, currentBackup); }
                     catch (e) { resume(); throw e; }
+                    if (storage.flush) await storage.flush();
                     alert('Backup restaurado. O app será reaberto. A sincronização está pausada; confira os dados antes de reconectar.');
                     location.reload();
                 } catch (e) { options.notify(e.message); }
@@ -121,5 +137,5 @@
             document.body.appendChild(picker); picker.click();
         };
     }
-    root.GatoBackup = { normalize, create, restore, init };
+    root.GatoBackup = { normalize, create, restore, init, download, lastExportLabel };
 })(globalThis);

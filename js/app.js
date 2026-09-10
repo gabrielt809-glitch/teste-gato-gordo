@@ -1,12 +1,13 @@
 (function() {
-    let perfis = JSON.parse(localStorage.getItem('gato_gordo_perfis') || '[]');
+    let perfis = JSON.parse(gatoStorage.getItem('gato_gordo_perfis') || '[]');
     let perfilLogado = null;
     let telaAtual = 'pessoal';
     let detalheContaId = null;
     let detalheCartaoId = null;
 
     // --- Sincronização Compartilhada (Google Sheets via Apps Script) ---
-    let syncUrl = localStorage.getItem('gato_gordo_sync_paused') === 'true' ? '' : localStorage.getItem('gato_gordo_sync_url') || 'https://script.google.com/macros/s/AKfycbyS7pjLcrMj9pnJjfw_uwqFsGCY468_qUN3-k9CinkJ1thGZYNryo_rgcH9u5UxUe6nbw/exec';
+    let syncUrl = GatoSyncConfig.configured(gatoStorage);
+    let syncGeneration = 0;
     let syncIntervalId = null;
     let syncEmAndamento = false;
     let syncEnviosPendentes = 0;
@@ -65,10 +66,10 @@
 
     // --- Grupos Compartilhados (múltiplos, independentes entre si) ---
     // Cada grupo tem: id (código curto pra convite), nome, pessoas, contas, regra.
-    let gruposCompart = JSON.parse(localStorage.getItem('gato_gordo_grupos') || 'null');
-    if (!gruposCompart) {
+    let gruposCompart = JSON.parse(gatoStorage.getItem('gato_gordo_grupos') || 'null');
+    if (!gruposCompart || gruposCompart.length === 0) {
         // Migração: quem já usava a versão com um único grupo compartilhado vira o primeiro grupo.
-        const antigo = JSON.parse(localStorage.getItem('gato_gordo_compart') || 'null');
+        const antigo = JSON.parse(gatoStorage.getItem('gato_gordo_compart') || 'null');
         gruposCompart = [{
             id: gerarIdGrupo(),
             nome: 'Compartilhado',
@@ -77,10 +78,10 @@
             regra: (antigo && antigo.regra) || 'proporcional'
         }];
     }
-    let grupoAtivoId = localStorage.getItem('gato_gordo_grupo_ativo') || (gruposCompart[0] && gruposCompart[0].id) || null;
-    let syncTimestamps = JSON.parse(localStorage.getItem('gato_gordo_sync_ts_map') || '{}');
+    let grupoAtivoId = gatoStorage.getItem('gato_gordo_grupo_ativo') || (gruposCompart[0] && gruposCompart[0].id) || null;
+    let syncTimestamps = JSON.parse(gatoStorage.getItem('gato_gordo_sync_ts_map') || '{}');
 
-    function salvarPerfis() { localStorage.setItem('gato_gordo_perfis', JSON.stringify(perfis)); }
+    function salvarPerfis() { gatoStorage.setItem('gato_gordo_perfis', JSON.stringify(perfis)); }
 
     function gerarIdGrupo() {
         return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -91,7 +92,7 @@
     }
 
     function salvarGrupos() {
-        localStorage.setItem('gato_gordo_grupos', JSON.stringify(gruposCompart));
+        gatoStorage.setItem('gato_gordo_grupos', JSON.stringify(gruposCompart));
     }
 
     function salvarCompart() {
@@ -104,15 +105,18 @@
         const g = grupoAtivo();
         if (!syncUrl || !g) return;
         syncEnviosPendentes++;
+        const generation = syncGeneration;
+        const requestUrl = syncUrl;
         try {
-            const resp = await fetch(syncUrl, {
+            const resp = await fetch(requestUrl, {
                 method: 'POST',
                 body: JSON.stringify({ grupoId: g.id, dados: { nome: g.nome, pessoas: g.pessoas, contas: g.contas, regra: g.regra } })
             });
             const json = await resp.json();
+            if (generation !== syncGeneration) return;
             if (json && json.timestamp) {
                 syncTimestamps[g.id] = json.timestamp;
-                localStorage.setItem('gato_gordo_sync_ts_map', JSON.stringify(syncTimestamps));
+                gatoStorage.setItem('gato_gordo_sync_ts_map', JSON.stringify(syncTimestamps));
             }
         } catch (e) {
             console.warn('Falha ao sincronizar (enviar):', e);
@@ -126,15 +130,19 @@
         const g = grupoAtivo();
         if (!syncUrl || !g || syncEmAndamento) return;
         syncEmAndamento = true;
+        const generation = syncGeneration;
+        const requestUrl = syncUrl;
         try {
-            const respTs = await fetch(`${syncUrl}?acao=timestamp&grupoId=${g.id}`);
+            const respTs = await fetch(`${requestUrl}?acao=timestamp&grupoId=${encodeURIComponent(g.id)}`);
             const jsonTs = await respTs.json();
+            if (generation !== syncGeneration) return;
             const remoto = jsonTs.timestamp || 0;
             const ultimoLocal = syncTimestamps[g.id] || 0;
             if (forcar || remoto > ultimoLocal) {
-                const resp = await fetch(`${syncUrl}?grupoId=${g.id}`);
+                const resp = await fetch(`${requestUrl}?grupoId=${encodeURIComponent(g.id)}`);
                 const json = await resp.json();
-                const novosDados = JSON.parse(json.dados || '{}');
+                if (generation !== syncGeneration) return;
+                const novosDados = GatoSyncConfig.validateGroup(JSON.parse(json.dados || '{}'));
                 if (novosDados && (novosDados.pessoas || novosDados.contas)) {
                     g.pessoas = novosDados.pessoas || [];
                     g.contas = novosDados.contas || [];
@@ -142,7 +150,7 @@
                     salvarGrupos();
                 }
                 syncTimestamps[g.id] = json.timestamp || remoto;
-                localStorage.setItem('gato_gordo_sync_ts_map', JSON.stringify(syncTimestamps));
+                gatoStorage.setItem('gato_gordo_sync_ts_map', JSON.stringify(syncTimestamps));
                 if (telaAtual === 'compartilhado') renderCompart();
             }
         } catch (e) {
@@ -174,20 +182,27 @@
         content.innerHTML = `
             <h3 class="text-lg font-bold mb-2">Sincronização Compartilhada</h3>
             <p class="text-xs text-gray-500 mb-4">Cole aqui o link do Apps Script gerado a partir da planilha do Google Sheets. Esse mesmo link deve ser colado no aparelho da outra pessoa pra sincronizar os dois.</p>
-            <input id="f-sync-url" value="${syncUrl || ''}" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 rounded-xl mb-3">
+            <input id="f-sync-url" placeholder="https://script.google.com/macros/s/..." class="w-full p-3 rounded-xl mb-3">
             <button onclick="salvarConfigSync()" class="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mb-2">Salvar e Sincronizar</button>
             ${syncUrl ? `
             <button onclick="copiarLinkConvite()" class="w-full bg-white/5 text-xs font-bold py-3 rounded-xl mb-2">📋 Copiar link para convidar</button>
             <button onclick="desconectarSync()" class="w-full text-red-400 text-xs font-bold py-3 rounded-xl">Desconectar</button>` : ''}
         `;
+        document.getElementById('f-sync-url').value = syncUrl || gatoStorage.getItem('gato_gordo_sync_url') || '';
     };
 
     window.salvarConfigSync = function() {
-        const url = document.getElementById('f-sync-url').value.trim();
-        if (!url) return;
+        let url;
+        try { url = GatoSyncConfig.normalize(document.getElementById('f-sync-url').value); }
+        catch (error) { mostrarToast(error.message); return; }
+        try {
+            gatoStorage.batch(() => {
+                gatoStorage.setItem('gato_gordo_sync_url', url);
+                gatoStorage.removeItem('gato_gordo_sync_paused');
+            });
+        } catch (error) { mostrarToast(error.message); return; }
+        syncGeneration++;
         syncUrl = url;
-        localStorage.setItem('gato_gordo_sync_url', url);
-        localStorage.removeItem('gato_gordo_sync_paused');
         closeModal();
         mostrarToast('Sincronização configurada! Buscando dados...');
         syncVerificarEBaixar(true);
@@ -200,10 +215,16 @@
     };
 
     window.desconectarSync = function() {
+        // Interrompe a sessão atual mesmo se o navegador recusar uma gravação.
+        syncGeneration++;
         syncUrl = null;
-        localStorage.removeItem('gato_gordo_sync_url');
-        localStorage.setItem('gato_gordo_sync_paused', 'true');
         pararPollingSync();
+        try {
+            gatoStorage.batch(() => {
+                gatoStorage.removeItem('gato_gordo_sync_url');
+                gatoStorage.setItem('gato_gordo_sync_paused', 'true');
+            });
+        } catch (error) { mostrarToast('Sincronização parada nesta sessão. ' + error.message); return; }
         closeModal();
         mostrarToast('Sincronização desconectada');
     };
@@ -510,11 +531,12 @@
     }
 
     GatoBackup.init({
+        storage: gatoStorage,
         snapshot: () => ({ perfis, grupos: gruposCompart, settings: {
             activeGroupId: grupoAtivoId,
-            syncUrl: syncUrl || localStorage.getItem('gato_gordo_sync_url') || '',
+            syncUrl: syncUrl || gatoStorage.getItem('gato_gordo_sync_url') || '',
             syncTimestamps,
-            syncPaused: localStorage.getItem('gato_gordo_sync_paused') === 'true'
+            syncPaused: gatoStorage.getItem('gato_gordo_sync_paused') === 'true'
         }}),
         notify: mostrarToast,
         pause: () => {
@@ -522,6 +544,7 @@
             const previousUrl = syncUrl;
             const polling = Boolean(syncIntervalId);
             pararPollingSync();
+            syncGeneration++;
             syncUrl = '';
             return () => { syncUrl = previousUrl; if (polling) iniciarPollingSync(); };
         }
@@ -628,6 +651,7 @@
                         <div class="text-left">
                             <p class="font-bold text-sm">Baixar backup completo</p>
                             <p class="text-[10px] text-gray-500">Perfis, grupos e configurações • arquivo contém dados e PIN</p>
+                            <p class="text-[10px] text-gray-500">${GatoBackup.lastExportLabel(gatoStorage)}</p>
                         </div>
                     </button>
                     <button onclick="restaurarBackup()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
@@ -639,6 +663,11 @@
                         <span class="text-xl">↩️</span>
                         <div class="text-left"><p class="font-bold text-sm">Baixar cópia anterior à restauração</p>
                         <p class="text-[10px] text-gray-500">Disponível após restaurar um backup neste aparelho</p></div>
+                    </button>
+                    <button onclick="abrirCopiasAutomaticas()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
+                        <span class="text-xl">🗂️</span>
+                        <div class="text-left"><p class="font-bold text-sm">Cópias automáticas neste aparelho</p>
+                        <p class="text-[10px] text-gray-500">Baixar versões recentes dos seus dados</p></div>
                     </button>
                     <button onclick="exportarCSV()" class="w-full card-premium p-4 rounded-2xl flex items-center gap-4">
                         <span class="text-xl">📊</span>
@@ -2130,7 +2159,7 @@
     window.trocarGrupoCompart = function(id) {
         if (id === grupoAtivoId) return;
         grupoAtivoId = id;
-        localStorage.setItem('gato_gordo_grupo_ativo', id);
+        gatoStorage.setItem('gato_gordo_grupo_ativo', id);
         renderCompart();
         syncVerificarEBaixar(true);
     };
@@ -2154,7 +2183,7 @@
         gruposCompart.push(novoGrupo);
         salvarGrupos();
         grupoAtivoId = novoGrupo.id;
-        localStorage.setItem('gato_gordo_grupo_ativo', novoGrupo.id);
+        gatoStorage.setItem('gato_gordo_grupo_ativo', novoGrupo.id);
         closeModal();
         renderCompart();
         mostrarToast(`Grupo "${nome}" criado!`);
@@ -2208,7 +2237,7 @@
             salvarGrupos();
             if (grupoAtivoId === id) {
                 grupoAtivoId = gruposCompart[0].id;
-                localStorage.setItem('gato_gordo_grupo_ativo', grupoAtivoId);
+                gatoStorage.setItem('gato_gordo_grupo_ativo', grupoAtivoId);
             }
             renderCompart();
             abrirGerenciarGrupos();
@@ -2282,7 +2311,7 @@
         mostrarConfirmacao(`Entrar no grupo compartilhado "${nomeGrupo}"?`, () => {
             gruposCompart.push({ id: grupoId, nome: nomeGrupo, pessoas: [], contas: [], regra: 'proporcional' });
             grupoAtivoId = grupoId;
-            localStorage.setItem('gato_gordo_grupo_ativo', grupoId);
+            gatoStorage.setItem('gato_gordo_grupo_ativo', grupoId);
             salvarGrupos();
             mostrarToast(`Entrou no grupo "${nomeGrupo}"!`);
             syncVerificarEBaixar(true);

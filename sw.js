@@ -1,9 +1,10 @@
 /* Aumentar VERSION a cada alteração nos arquivos essenciais. */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const PREFIX = 'gato-gordo-' + encodeURIComponent(self.registration.scope) + '-';
 const CACHE = PREFIX + VERSION;
 const LOCAL = [
     './', 'index.html', 'css/style.css', 'js/backup.js', 'js/app.js', 'js/pwa.js',
+    'js/storage.js', 'js/sync-config.js', 'js/bootstrap.js',
     'manifest.json', 'assets/app_icon_dark.png', 'assets/cat_mascot.png', 'assets/logo.png'
 ];
 const SCRIPTS = ['https://cdn.tailwindcss.com/', 'https://cdn.jsdelivr.net/npm/chart.js'];

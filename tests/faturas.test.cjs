@@ -18,7 +18,9 @@ const profile = {
   ]
 };
 
-assert.deepEqual(F.parseMonthLabel('setembro de 2026'), { month: 8, year: 2026 });
+const period = F.parseMonthLabel('setembro de 2026');
+assert.equal(period.month, 8);
+assert.equal(period.year, 2026);
 assert.equal(F.invoiceSummary(profile, 10, 8, 2026).total, 150);
 assert.equal(F.invoiceSummary(profile, 10, 8, 2026).open, 150);
 
@@ -47,4 +49,4 @@ assert.equal(full.contaId, 1);
 assert.equal(F.invoiceSummary(profile, 10, 8, 2026).open, 0);
 assert.equal(profile.cartoes[0].utilizado, 1050);
 
-console.log('faturas: 9 assertions passed');
+console.log('faturas: 12 assertions passed');

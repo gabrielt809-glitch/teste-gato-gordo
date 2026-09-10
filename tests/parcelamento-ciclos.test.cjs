@@ -35,7 +35,7 @@ profile.transacoes.push(...result.transactions);
 assert.equal(result.transactions.length, 6);
 assert.equal(result.cardIncrease, 1200);
 assert.equal(new Set(result.transactions.map(t => t.parcelamentoId)).size, 1);
-assert.deepEqual(result.transactions.map(t => t.parcelaNumero), [1, 2, 3, 4, 5, 6]);
+assert.deepEqual(Array.from(result.transactions, t => t.parcelaNumero), [1, 2, 3, 4, 5, 6]);
 assert.equal(new Set(result.transactions.map(t => t.totalParcelas)).size, 1);
 assert.equal(result.transactions[0].valorTotal, 1200);
 assert.equal(result.transactions[0].compraData, '2026-09-12');

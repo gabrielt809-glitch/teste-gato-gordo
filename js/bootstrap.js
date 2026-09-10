@@ -115,9 +115,19 @@
         if (!result.ready) { recoveryScreen(result); return; }
         const script = document.createElement('script'); script.src = 'js/app.js';
         script.onload = () => {
-            const faturas = document.createElement('script'); faturas.src = 'js/faturas.js';
-            faturas.onerror = () => console.warn('Módulo de faturas não carregou; o restante do app continua disponível.');
-            document.body.appendChild(faturas);
+            const ciclos = document.createElement('script'); ciclos.src = 'js/ciclos-cartao.js';
+            ciclos.onload = () => {
+                const faturas = document.createElement('script'); faturas.src = 'js/faturas.js';
+                faturas.onload = () => {
+                    const faturasCiclos = document.createElement('script'); faturasCiclos.src = 'js/faturas-ciclos.js';
+                    faturasCiclos.onerror = () => console.warn('Módulo de integração de ciclos não carregou; faturas continuam disponíveis.');
+                    document.body.appendChild(faturasCiclos);
+                };
+                faturas.onerror = () => console.warn('Módulo de faturas não carregou; o restante do app continua disponível.');
+                document.body.appendChild(faturas);
+            };
+            ciclos.onerror = () => console.warn('Módulo de ciclos não carregou; o detalhe antigo do cartão continua disponível.');
+            document.body.appendChild(ciclos);
         };
         script.onerror = () => {
             const view = dialog('Não foi possível abrir o app', true);

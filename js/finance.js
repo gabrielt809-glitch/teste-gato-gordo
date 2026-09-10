@@ -44,7 +44,7 @@
             const value = cents(t.valor || 0);
             if (ids.has(t.contaId)) {
                 if (t.tipo === 'receita') total += value;
-                if (t.tipo === 'despesa' || t.tipo === 'transferencia') total -= value;
+                if (t.tipo === 'despesa' || t.tipo === 'pagamento_fatura' || t.tipo === 'transferencia') total -= value;
             }
             if (t.tipo === 'transferencia' && ids.has(t.contaDestinoId)) total += value;
         }

@@ -114,6 +114,11 @@
     storage.init().then(result => {
         if (!result.ready) { recoveryScreen(result); return; }
         const script = document.createElement('script'); script.src = 'js/app.js';
+        script.onload = () => {
+            const faturas = document.createElement('script'); faturas.src = 'js/faturas.js';
+            faturas.onerror = () => console.warn('Módulo de faturas não carregou; o restante do app continua disponível.');
+            document.body.appendChild(faturas);
+        };
         script.onerror = () => {
             const view = dialog('Não foi possível abrir o app', true);
             element('p', 'Seus dados foram preservados. Tente recarregar com conexão.', view);

@@ -75,4 +75,4 @@ const outubroAfterClosing = C.transactionsForCycle(afterClosingProfile, 10, 9, 2
 assert.equal(outubroAfterClosing.length, 1);
 assert.equal(outubroAfterClosing[0].parcelaNumero, 1);
 
-console.log('parcelamento-ciclos: 16 assertions passed');
+console.log('parcelamento-ciclos: 17 assertions passed');

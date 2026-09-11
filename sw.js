@@ -1,5 +1,5 @@
 /* Aumentar VERSION a cada alteração nos arquivos essenciais. */
-const VERSION = 'v4';
+const VERSION = 'v5';
 const PREFIX = 'gato-gordo-' + encodeURIComponent(self.registration.scope) + '-';
 const CACHE = PREFIX + VERSION;
 const LOCAL = [
@@ -17,12 +17,15 @@ self.addEventListener('install', event => {
     event.waitUntil((async () => {
         const cache = await caches.open(CACHE);
         await cache.addAll(LOCAL.map(absolute));
-        // Esses scripts são necessários também no primeiro carregamento offline.
+        // CDN é opcional: se estiver indisponível, os arquivos locais continuam instalando.
         for (const url of SCRIPTS) {
-            const request = new Request(url, { mode: 'no-cors', cache: 'reload' });
-            const response = await fetch(request);
-            if (!response.ok && response.type !== 'opaque') throw new Error('Falha ao preparar o modo offline');
-            await cache.put(url, response);
+            try {
+                const request = new Request(url, { mode: 'no-cors', cache: 'reload' });
+                const response = await fetch(request);
+                if (response.ok || response.type === 'opaque') await cache.put(url, response);
+            } catch (_) {
+                // O cache local não deve deixar de ser instalado por uma falha externa.
+            }
         }
     })());
 });

@@ -61,6 +61,17 @@
             #modal .gg-danger-confirm .gg-confirm-actions button:last-child,
             #modal .gg-danger-confirm button[class*="red"] { background:#ef4444 !important; color:#fff !important; }
 
+            #modal .gg-meta-progress {
+                margin:0 0 18px; padding:15px 16px 14px; border-radius:19px;
+                background:rgba(168,85,247,.07); border:1px solid rgba(168,85,247,.12);
+            }
+            #modal .gg-meta-progress-head { display:flex; justify-content:space-between; gap:12px; align-items:baseline; margin-bottom:9px; }
+            #modal .gg-meta-progress-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:rgba(216,180,254,.72); }
+            #modal .gg-meta-progress-percent { font-size:14px; font-weight:900; color:#d8b4fe; }
+            #modal .gg-meta-progress-track { height:8px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.07); }
+            #modal .gg-meta-progress-bar { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,#a855f7,#c084fc); transition:width .25s ease; }
+            #modal .gg-meta-progress-values { display:flex; justify-content:space-between; gap:12px; margin-top:8px; font-size:10px; color:rgba(156,163,175,.72); }
+
             @media (max-width:600px) {
                 #modal .gg-action-value input { font-size:29px !important; }
                 #modal .gg-scope-actions button { min-height:72px; }
@@ -99,7 +110,6 @@
         if (!input || !account) return;
         inner.dataset.ggMetaAction = '1';
 
-        const h = heading(inner);
         const currentText = [...inner.querySelectorAll('p')].find(p => /disponível/i.test(p.textContent || ''));
         addHero(inner, isWithdraw ? '↩' : '🎯', isWithdraw ? 'O dinheiro volta para uma conta escolhida' : 'Reserve dinheiro sem perder o controle do saldo');
 
@@ -130,6 +140,50 @@
         if (save) save.classList.add('gg-action-primary');
     }
 
+    function enhanceMetaProgress(inner) {
+        if (inner.dataset.ggMetaProgress === '1') return;
+        const target = inner.querySelector('#f-meta-obj');
+        const current = inner.querySelector('#f-meta-atual');
+        if (!target || !current) return;
+        inner.dataset.ggMetaProgress = '1';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'gg-meta-progress';
+        wrap.innerHTML = `
+            <div class="gg-meta-progress-head">
+                <span class="gg-meta-progress-title">Progresso da meta</span>
+                <strong class="gg-meta-progress-percent">0%</strong>
+            </div>
+            <div class="gg-meta-progress-track"><div class="gg-meta-progress-bar"></div></div>
+            <div class="gg-meta-progress-values"><span class="gg-meta-progress-current">Atual: R$ 0,00</span><span class="gg-meta-progress-target">Meta: R$ 0,00</span></div>
+        `;
+        const anchor = target.closest('div') || target.parentElement;
+        if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor);
+
+        const parse = value => {
+            const raw = String(value ?? '').replace(/[^0-9,.-]/g, '').trim();
+            if (!raw) return 0;
+            const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
+            const number = Number(normalized);
+            return Number.isFinite(number) ? Math.max(0, number) : 0;
+        };
+        const money = value => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const render = () => {
+            const targetValue = parse(target.value);
+            const currentValue = parse(current.value);
+            const ratio = targetValue > 0 ? Math.min(1, currentValue / targetValue) : 0;
+            wrap.querySelector('.gg-meta-progress-percent').textContent = `${Math.round(ratio * 100)}%`;
+            wrap.querySelector('.gg-meta-progress-bar').style.width = `${ratio * 100}%`;
+            wrap.querySelector('.gg-meta-progress-current').textContent = `Atual: ${money(currentValue)}`;
+            wrap.querySelector('.gg-meta-progress-target').textContent = `Meta: ${money(targetValue)}`;
+        };
+        ['input', 'change'].forEach(eventName => {
+            target.addEventListener(eventName, render);
+            current.addEventListener(eventName, render);
+        });
+        render();
+    }
+
     function enhanceScope(inner) {
         if (inner.dataset.ggScopeAction === '1') return;
         const h = heading(inner);
@@ -137,10 +191,16 @@
         if (!h || scopeButtons.length < 2) return;
         inner.dataset.ggScopeAction = '1';
         addHero(inner, '✎', 'Escolha o alcance antes de aplicar a alteração');
-        const group = scopeButtons[0].parentElement;
-        if (!group) return;
-        group.classList.add('gg-scope-actions');
-        scopeButtons.forEach(b => b.classList.add('gg-scope-choice'));
+
+        const first = scopeButtons[0];
+        const group = document.createElement('div');
+        group.className = 'gg-scope-actions';
+        first.parentNode.insertBefore(group, first);
+        scopeButtons.forEach(b => {
+            b.classList.add('gg-scope-choice');
+            group.appendChild(b);
+        });
+
         const cancel = buttons(inner).find(b => /cancelar/i.test(b.textContent || ''));
         if (cancel) cancel.classList.add('gg-scope-cancel');
     }
@@ -154,9 +214,7 @@
         inner.dataset.ggDangerAction = '1';
         inner.classList.add('gg-danger-confirm');
         const copy = [...inner.querySelectorAll('p')].find(p => !p.closest('.gg-action-hero'));
-        if (copy && !inner.querySelector('.gg-danger-callout')) {
-            copy.classList.add('gg-danger-callout');
-        }
+        if (copy && !inner.querySelector('.gg-danger-callout')) copy.classList.add('gg-danger-callout');
     }
 
     function enhance(inner) {
@@ -166,6 +224,7 @@
         const deposit = inner.querySelector('#f-meta-valor');
         if (withdraw) enhanceMetaAction(inner, true);
         else if (deposit && inner.querySelector('#f-meta-conta')) enhanceMetaAction(inner, false);
+        enhanceMetaProgress(inner);
         enhanceScope(inner);
         enhanceDanger(inner);
     }

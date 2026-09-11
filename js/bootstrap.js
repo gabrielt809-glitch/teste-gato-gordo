@@ -118,7 +118,7 @@
         const modalScript = document.createElement('script'); modalScript.src = 'js/premium-modal.js?v=2'; document.body.appendChild(modalScript);
         const orderScript = document.createElement('script'); orderScript.src = 'js/modal-order-fix.js?v=1'; document.body.appendChild(orderScript);
         const systemScript = document.createElement('script'); systemScript.src = 'js/modal-system.js?v=1'; document.body.appendChild(systemScript);
-        const entityScript = document.createElement('script'); entityScript.src = 'js/modal-entities.js?v=1'; document.body.appendChild(entityScript);
+        const entityScript = document.createElement('script'); entityScript.src = 'js/modal-entities.js?v=2'; document.body.appendChild(entityScript);
     }
     document.getElementById('login-form').textContent = 'Abrindo seus dados…';
     storage.init().then(result => {

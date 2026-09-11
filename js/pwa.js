@@ -7,6 +7,14 @@
     document.body.appendChild(banner);
     const update = () => { banner.hidden = navigator.onLine; };
     addEventListener('online', update); addEventListener('offline', update); update();
+
+    // Carrega a fronteira de integridade depois do bootstrap. O módulo aguarda
+    // as APIs dinâmicas do app e então passa a proteger as mutações financeiras.
+    const integrity = document.createElement('script');
+    integrity.src = 'js/transacoes-integridade.js';
+    integrity.onerror = () => console.warn('Camada de integridade não carregou; funcionalidades financeiras continuam disponíveis.');
+    document.body.appendChild(integrity);
+
     if ('serviceWorker' in navigator && isSecureContext) {
         addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(error => {

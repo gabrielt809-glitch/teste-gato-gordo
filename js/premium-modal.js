@@ -1,12 +1,15 @@
 /* Gato Gordo — Modal UX v2
-   Camada de apresentação para a Nova Transação. A lógica financeira continua no app.js. */
+   Camada de apresentação da Nova Transação.
+   A lógica financeira continua no app.js. */
 (function () {
   'use strict';
 
   const modal = () => document.getElementById('modal');
   const inner = () => document.getElementById('modal-content-inner');
+
   const SVG = {
-    transfer: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12"/><path d="m15 3 4 4-4 4"/><path d="M17 17H5"/><path d="m9 21-4-4 4-4"/></svg>'
+    transfer: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12"/><path d="m15 3 4 4-4 4"/><path d="M17 17H5"/><path d="m9 21-4-4 4-4"/></svg>',
+    bank: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-5 9 5"/><path d="M5 10v7M9 10v7M15 10v7M19 10v7"/><path d="M3 20h18"/></svg>'
   };
 
   function buttonOption(value, label, icon) {
@@ -23,7 +26,9 @@
   }
 
   function makeChoiceGroup(select, options, className) {
-    if (!select || select.dataset.ggChoiceReady === 'true') return select?.nextElementSibling;
+    if (!select) return null;
+    const existing = select.nextElementSibling;
+    if (select.dataset.ggChoiceReady === 'true') return existing;
     const group = document.createElement('div');
     group.className = `gg-choice-group ${className || ''}`;
     group.setAttribute('role', 'group');
@@ -44,13 +49,61 @@
   }
 
   function addHandle() {
-    const m = modal();
-    const sheet = m?.querySelector('.modal-content');
+    const sheet = modal()?.querySelector('.modal-content');
     if (!sheet || sheet.querySelector('.gg-modal-handle')) return;
     const handle = document.createElement('div');
     handle.className = 'gg-modal-handle';
     handle.setAttribute('aria-hidden', 'true');
     sheet.prepend(handle);
+  }
+
+  function addContextCard(content, cardSelect) {
+    if (content.querySelector('.gg-card-context')) return;
+    const card = cardSelect?.options[cardSelect.selectedIndex];
+    const wrap = document.createElement('div');
+    wrap.className = 'gg-card-context';
+    wrap.innerHTML = `<div class="gg-context-icon">💳</div><div><strong>Compra no cartão</strong><span>Será adicionada à fatura de ${card ? card.textContent.trim() : 'seu cartão'}</span></div>`;
+    const heading = content.querySelector('h3');
+    heading?.insertAdjacentElement('afterend', wrap);
+  }
+
+  function addTransferFlow(content, accountSelect, destinationSelect) {
+    if (!accountSelect || !destinationSelect || content.querySelector('.gg-transfer-flow')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'gg-transfer-flow';
+
+    const makeNode = (title, select) => {
+      const option = select.options[select.selectedIndex];
+      const node = document.createElement('div');
+      node.className = 'gg-transfer-node';
+      node.innerHTML = `<span class="gg-transfer-kicker">${title}</span><span class="gg-transfer-account"><span class="gg-transfer-icon">${SVG.bank}</span><span class="gg-transfer-name">${option ? option.textContent.trim() : 'Selecionar conta'}</span><span class="gg-transfer-chevron">⌄</span></span>`;
+      node.addEventListener('click', () => select.focus());
+      return node;
+    };
+
+    const from = makeNode('De', accountSelect);
+    const arrow = document.createElement('div');
+    arrow.className = 'gg-transfer-arrow';
+    arrow.innerHTML = '↓';
+    const to = makeNode('Para', destinationSelect);
+    wrap.append(from, arrow, to);
+
+    accountSelect.hidden = true;
+    destinationSelect.hidden = true;
+    accountSelect.setAttribute('aria-hidden', 'true');
+    destinationSelect.setAttribute('aria-hidden', 'true');
+    accountSelect.parentElement.appendChild(wrap);
+
+    const refresh = () => {
+      const selects = [accountSelect, destinationSelect];
+      wrap.querySelectorAll('.gg-transfer-node').forEach((node, i) => {
+        const option = selects[i].options[selects[i].selectedIndex];
+        const name = node.querySelector('.gg-transfer-name');
+        if (name) name.textContent = option ? option.textContent.trim() : 'Selecionar conta';
+      });
+    };
+    accountSelect.addEventListener('change', refresh);
+    destinationSelect.addEventListener('change', refresh);
   }
 
   function improveTransaction(content) {
@@ -71,32 +124,25 @@
       heading.classList.add('gg-transaction-title');
     }
 
-    let subtitle = content.querySelector('.gg-transaction-subtitle');
-    if (cardContext && !subtitle) {
-      subtitle = document.createElement('p');
-      subtitle.className = 'gg-transaction-subtitle';
-      const card = document.querySelector('#f-trans-cartao option:checked');
-      subtitle.textContent = `💳 Compra adicionada à fatura ${card ? `do ${card.textContent.trim()}` : ''}`.trim();
-      heading?.insertAdjacentElement('afterend', subtitle);
-    }
-
-    if (type) {
-      makeChoiceGroup(type, [
+    if (type && !type.dataset.ggChoiceReady) {
+      const allowed = [...type.options].map(option => option.value);
+      const typeOptions = [
         { value: 'despesa', label: 'Despesa', icon: '−' },
         { value: 'receita', label: 'Receita', icon: '+' },
         { value: 'transferencia', label: 'Transferência', icon: SVG.transfer },
         { value: 'cartao', label: 'Cartão', icon: '💳' }
-      ], 'gg-type-choices');
+      ].filter(option => allowed.includes(option.value));
+      makeChoiceGroup(type, typeOptions, 'gg-type-choices');
     }
 
-    if (recurrence) {
+    if (recurrence && !recurrence.dataset.ggChoiceReady) {
       makeChoiceGroup(recurrence, [
         { value: 'nenhuma', label: 'Nenhuma' },
         { value: 'mensal', label: 'Mensal' },
         { value: 'semanal', label: 'Semanal' },
         { value: 'quinzenal', label: 'Quinzenal' },
         { value: 'parcelado', label: 'Parcelado' }
-      ], 'gg-recurrence-choices');
+      ].filter(option => [...recurrence.options].some(o => o.value === option.value)), 'gg-recurrence-choices');
     }
 
     amount.classList.add('gg-amount-input');
@@ -106,20 +152,6 @@
 
     const amountLabel = [...content.querySelectorAll('label')].find(l => l.textContent.trim().toLowerCase().startsWith('valor'));
     if (amountLabel) amountLabel.textContent = 'Valor';
-
-    const updateVisibility = () => {
-      const currentType = type ? type.value : 'cartao';
-      const categoryGroup = document.getElementById('f-trans-categoria-group');
-      if (categoryGroup) categoryGroup.classList.toggle('gg-hidden-context', currentType === 'transferencia' || currentType === 'cartao');
-      content.classList.toggle('gg-is-transfer', currentType === 'transferencia');
-      content.classList.toggle('gg-is-card', currentType === 'cartao' || cardContext);
-      const typeGroup = document.getElementById('f-trans-tipo-group');
-      if (typeGroup) typeGroup.classList.toggle('gg-type-hidden', currentType === 'cartao');
-      const group = type?.nextElementSibling;
-      if (type && group?.classList.contains('gg-choice-group')) syncChoiceGroup(type, group);
-    };
-    if (type) type.addEventListener('change', updateVisibility);
-    updateVisibility();
 
     content.querySelectorAll('label').forEach(label => label.classList.add('gg-form-label'));
     const save = [...content.querySelectorAll('button')].find(b => /^salvar/i.test(b.textContent.trim()));
@@ -132,6 +164,33 @@
     const destinationGroup = document.getElementById('f-trans-dest-group');
     if (accountGroup) accountGroup.classList.add('gg-origin-group');
     if (destinationGroup) destinationGroup.classList.add('gg-destination-group');
+
+    const updateVisibility = () => {
+      const currentType = type ? type.value : 'cartao';
+      const categoryGroup = document.getElementById('f-trans-categoria-group');
+      if (categoryGroup) categoryGroup.classList.toggle('gg-hidden-context', currentType === 'transferencia' || currentType === 'cartao');
+      content.classList.toggle('gg-is-transfer', currentType === 'transferencia');
+      content.classList.toggle('gg-is-card', currentType === 'cartao' || cardContext);
+
+      const typeGroup = document.getElementById('f-trans-tipo-group');
+      if (typeGroup) typeGroup.classList.toggle('gg-type-hidden', currentType === 'cartao');
+
+      const group = type?.nextElementSibling;
+      if (type && group?.classList.contains('gg-choice-group')) syncChoiceGroup(type, group);
+
+      if (currentType === 'transferencia') {
+        addTransferFlow(content, accountGroup?.querySelector('select') || document.getElementById('f-trans-conta'), document.getElementById('f-trans-conta-dest'));
+      }
+    };
+
+    if (type) type.addEventListener('change', updateVisibility);
+    updateVisibility();
+
+    if (cardContext) addContextCard(content, document.getElementById('f-trans-cartao'));
+
+    const transferAccount = document.getElementById('f-trans-conta');
+    const transferDestination = document.getElementById('f-trans-conta-dest');
+    if (type?.value === 'transferencia') addTransferFlow(content, transferAccount, transferDestination);
   }
 
   function enhance() {

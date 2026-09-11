@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 function worker() {
- const events = {}; const entries = new Map(); const deleted = []; let offline = false; let claims = 0;
+ const events = {}; const entries = new Map(); const deleted = []; let offline = false; let failExternal = false; let claims = 0;
  const scope = 'https://example.com/gato/';
  const key = value => typeof value === 'string' ? value : value.url;
  const cache = {
@@ -16,11 +16,11 @@ function worker() {
   URL, Request, Response, console,
   self: { registration:{scope}, location:{origin:'https://example.com'}, clients:{claim:async()=>claims++}, addEventListener:(type,handler)=>events[type]=handler },
   caches: {open:async()=>cache,keys:async()=>['other-app','gato-gordo-'+encodeURIComponent(scope)+'-v0'],delete:async name=>deleted.push(name)},
-  fetch:async request=>{ if(offline) throw Error('offline'); return new Response('remote:'+key(request)); }
+  fetch:async request=>{ const url=key(request); if(offline) throw Error('offline'); if(failExternal && !url.startsWith('https://example.com/gato/')) throw Error('cdn offline'); return new Response('remote:'+url); }
  };
  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8'),context);
  const dispatch = async(type,event={})=>{let work;events[type]({...event,waitUntil:p=>work=p,respondWith:p=>work=p});return work?await work:undefined;};
- return {dispatch,entries,deleted,goOffline:()=>offline=true,claims:()=>claims};
+ return {dispatch,entries,deleted,goOffline:()=>offline=true,failExternal:()=>failExternal=true,claims:()=>claims};
 }
 test('instala arquivos essenciais e bibliotecas; ativa sem apagar outro app',async()=>{
  const w=worker();await w.dispatch('install');await w.dispatch('activate');
@@ -38,6 +38,12 @@ test('reabre página, scripts e ícone com query string sem rede',async()=>{
  for(const url of ['https://example.com/gato/index.html','https://example.com/gato/js/app.js','https://example.com/gato/assets/app_icon_dark.png?v=3','https://cdn.tailwindcss.com/']) {
   const response=await w.dispatch('fetch',{request:new Request(url)});assert.equal(response.status,200);assert.ok(await response.text());
  }
+});
+test('instala o cache local mesmo quando uma CDN está fora do ar',async()=>{
+ const w=worker();w.failExternal();await w.dispatch('install');
+ assert.ok(w.entries.has('https://example.com/gato/index.html'));
+ assert.ok(w.entries.has('https://example.com/gato/js/finance.js'));
+ assert.ok(!w.entries.has('https://cdn.jsdelivr.net/npm/chart.js'));
 });
 test('não intercepta sincronização, POST nem recursos de outros projetos',async()=>{
  const w=worker();

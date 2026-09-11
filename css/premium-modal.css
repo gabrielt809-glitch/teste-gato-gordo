@@ -1,0 +1,196 @@
+/* Gato Gordo — Sprint Premium: sistema de modais
+   Camada visual/UX isolada. A lógica existente continua responsável pelas ações. */
+
+#modal.modal-premium {
+  background: rgba(2, 6, 23, .74) !important;
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)) !important;
+}
+
+#modal.modal-premium .modal-content {
+  width: min(100%, 560px) !important;
+  max-width: 560px !important;
+  max-height: min(92vh, 900px) !important;
+  margin: auto !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-radius: 28px !important;
+  background: linear-gradient(180deg, rgba(15,23,42,.98), rgba(10,15,28,.985)) !important;
+  box-shadow: 0 30px 90px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.035) !important;
+  animation: ggModalIn .28s cubic-bezier(.16,1,.3,1) both;
+}
+
+#modal.modal-premium #modal-content-inner {
+  max-height: min(92vh, 900px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom)) !important;
+}
+
+#modal.modal-premium #modal-content-inner > h3 {
+  margin: 0 48px 22px 0 !important;
+  padding: 0 !important;
+  font-size: 1.55rem !important;
+  line-height: 1.15 !important;
+  letter-spacing: -.045em !important;
+  font-weight: 800 !important;
+}
+
+#modal.modal-premium #modal-content-inner > p {
+  color: rgba(203,213,225,.55) !important;
+  line-height: 1.5 !important;
+}
+
+#modal.modal-premium label {
+  color: rgba(203,213,225,.68) !important;
+  font-size: .82rem !important;
+  line-height: 1.2 !important;
+  font-weight: 600 !important;
+  margin: 16px 0 7px !important;
+  letter-spacing: -.01em;
+}
+
+#modal.modal-premium input,
+#modal.modal-premium select,
+#modal.modal-premium textarea {
+  min-height: 54px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border-radius: 17px !important;
+  border: 1px solid rgba(255,255,255,.085) !important;
+  background: rgba(255,255,255,.055) !important;
+  color: #f8fafc !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+#modal.modal-premium input,
+#modal.modal-premium select { padding: 0 15px !important; }
+#modal.modal-premium textarea { padding: 14px 15px !important; }
+
+#modal.modal-premium select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  padding-right: 44px !important;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,.48) 50%), linear-gradient(135deg, rgba(255,255,255,.48) 50%, transparent 50%) !important;
+  background-position: calc(100% - 20px) 23px, calc(100% - 14px) 23px !important;
+  background-size: 6px 6px, 6px 6px !important;
+  background-repeat: no-repeat !important;
+}
+
+#modal.modal-premium input:focus,
+#modal.modal-premium select:focus,
+#modal.modal-premium textarea:focus {
+  border-color: rgba(245,158,11,.68) !important;
+  box-shadow: 0 0 0 4px rgba(245,158,11,.10), inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+
+#modal.modal-premium input::placeholder,
+#modal.modal-premium textarea::placeholder { color: rgba(203,213,225,.34) !important; }
+
+#modal.modal-premium .modal-field-amount {
+  min-height: 68px !important;
+  padding: 0 17px !important;
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -.045em !important;
+  text-align: left;
+  border-radius: 19px !important;
+  background: linear-gradient(145deg, rgba(245,158,11,.12), rgba(255,255,255,.055)) !important;
+  border-color: rgba(245,158,11,.18) !important;
+}
+
+#modal.modal-premium .modal-field-description { min-height: 58px !important; }
+
+#modal.modal-premium button {
+  transition: transform .16s ease, background-color .16s ease, border-color .16s ease, opacity .16s ease;
+}
+
+#modal.modal-premium .modal-premium-primary {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: block !important;
+  width: 100% !important;
+  min-height: 58px !important;
+  margin-top: 20px !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  background: linear-gradient(135deg, #f59e0b, #f97316) !important;
+  color: #09090b !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  box-shadow: 0 12px 30px rgba(245,158,11,.20) !important;
+}
+
+#modal.modal-premium .modal-premium-primary:active { transform: scale(.985) !important; }
+
+#modal.modal-premium .modal-premium-close {
+  width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background: rgba(255,255,255,.055) !important;
+  color: rgba(226,232,240,.7) !important;
+}
+
+#modal.modal-premium .modal-premium-close:hover { background: rgba(255,255,255,.09) !important; }
+
+#modal.modal-premium .modal-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+#modal.modal-premium .modal-field-row > div { min-width: 0; }
+
+#modal.modal-premium .modal-helper {
+  margin: 0 0 8px !important;
+  padding: 11px 13px !important;
+  border-radius: 14px !important;
+  background: rgba(255,255,255,.035) !important;
+  border: 1px solid rgba(255,255,255,.055) !important;
+  color: rgba(203,213,225,.48) !important;
+  font-size: .72rem !important;
+}
+
+@keyframes ggModalIn {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 600px) {
+  #modal.modal-premium {
+    align-items: flex-end !important;
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom)) !important;
+  }
+
+  #modal.modal-premium .modal-content {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100vh - env(safe-area-inset-top) - 8px) !important;
+    border-radius: 28px 28px 20px 20px !important;
+  }
+
+  #modal.modal-premium #modal-content-inner {
+    max-height: calc(100vh - env(safe-area-inset-top) - 8px) !important;
+    padding: 22px 18px calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+
+  #modal.modal-premium #modal-content-inner > h3 {
+    font-size: 1.4rem !important;
+    margin-bottom: 18px !important;
+  }
+
+  #modal.modal-premium .modal-field-row { gap: 10px; }
+  #modal.modal-premium label { margin-top: 14px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #modal.modal-premium .modal-content { animation: none; }
+  #modal.modal-premium button { transition: none; }
+}

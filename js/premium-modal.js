@@ -74,18 +74,25 @@
       wrap = document.createElement('div');
       wrap.className = 'gg-transfer-flow';
       const accountGroup = accountSelect.closest('#f-trans-conta-group');
-      accountGroup?.appendChild(wrap);
+      const destinationGroup = destinationSelect.closest('#f-trans-dest-group');
+      const parent = accountGroup?.parentElement || destinationGroup?.parentElement || content;
+      if (accountGroup) parent.insertBefore(wrap, accountGroup);
+      else parent.appendChild(wrap);
     }
-
     const makeNode = (title, select) => {
       const option = select.options[select.selectedIndex];
-      const node = document.createElement('div');
+      const node = document.createElement('button');
+      node.type = 'button';
       node.className = 'gg-transfer-node';
       node.innerHTML = `<span class="gg-transfer-kicker">${title}</span><span class="gg-transfer-account"><span class="gg-transfer-icon">${SVG.bank}</span><span class="gg-transfer-name">${option ? option.textContent.trim() : 'Selecionar conta'}</span><span class="gg-transfer-chevron">⌄</span></span>`;
-      node.addEventListener('click', () => select.focus());
+      node.addEventListener('click', () => {
+        select.hidden = false;
+        select.removeAttribute('aria-hidden');
+        select.focus();
+        setTimeout(() => { select.hidden = true; select.setAttribute('aria-hidden', 'true'); }, 0);
+      });
       return node;
     };
-
     if (!wrap.dataset.ready) {
       wrap.innerHTML = '';
       wrap.append(makeNode('De', accountSelect));
@@ -95,12 +102,10 @@
       wrap.appendChild(arrow);
       wrap.append(makeNode('Para', destinationSelect));
       wrap.dataset.ready = 'true';
-
       accountSelect.hidden = true;
       destinationSelect.hidden = true;
       accountSelect.setAttribute('aria-hidden', 'true');
       destinationSelect.setAttribute('aria-hidden', 'true');
-
       const refresh = () => {
         [accountSelect, destinationSelect].forEach((select, i) => {
           const option = select.options[select.selectedIndex];
@@ -143,18 +148,15 @@
     const destination = document.getElementById('f-trans-conta-dest');
     const currentType = type ? type.value : 'cartao';
     let valid = true;
-
     clearFieldError(amount);
     clearFieldError(category);
     clearFieldError(account);
     clearFieldError(destination);
-
     const rawAmount = String(amount?.value ?? '').replace(/[^0-9,.-]/g, '').replace(',', '.');
     if (!amount || !Number.isFinite(Number(rawAmount)) || Number(rawAmount) <= 0) {
       showFieldError(amount, 'Informe um valor maior que zero.');
       valid = false;
     }
-
     if (currentType === 'transferencia') {
       if (!account?.value) { showFieldError(account, 'Escolha a conta de origem.'); valid = false; }
       if (!destination?.value) { showFieldError(destination, 'Escolha a conta de destino.'); valid = false; }
@@ -166,7 +168,6 @@
       showFieldError(category, 'Escolha uma categoria.');
       valid = false;
     }
-
     if (!valid) {
       const firstError = content.querySelector('.gg-field-error');
       firstError?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -185,7 +186,6 @@
         return;
       }
     }, true);
-
     ['input', 'change'].forEach(type => content.addEventListener(type, event => {
       if (event.target.matches('#f-trans-valor, #f-trans-categoria, #f-trans-conta, #f-trans-conta-dest')) clearFieldError(event.target);
     }));
@@ -205,6 +205,28 @@
     sync();
   }
 
+  function reorderTransactionFields(content) {
+    const root = content.querySelector('.gg-transaction-form') || content;
+    const findGroup = id => document.getElementById(id)?.closest('.mb-3, .mb-4, .space-y-3 > div, [class*="mb-"]') || document.getElementById(id)?.parentElement;
+    const groups = {
+      type: findGroup('f-trans-tipo-group'),
+      recurrence: findGroup('f-trans-recorrencia-group'),
+      amount: findGroup('f-trans-valor-group'),
+      desc: findGroup('f-trans-desc-group'),
+      category: findGroup('f-trans-categoria-group'),
+      date: findGroup('f-trans-data-group'),
+      account: findGroup('f-trans-conta-group'),
+      destination: findGroup('f-trans-dest-group'),
+      card: findGroup('f-trans-cartao-group')
+    };
+    const order = [groups.type, groups.recurrence, groups.amount, groups.desc, groups.category, groups.date, groups.account, groups.destination, groups.card].filter(Boolean);
+    if (order.length < 2) return;
+    const parent = order.find(node => node.parentElement)?.parentElement;
+    if (!parent || !order.every(node => node.parentElement === parent)) return;
+    order.forEach(node => parent.appendChild(node));
+    root.classList.add('gg-order-ready');
+  }
+
   function improveTransaction(content) {
     const type = document.getElementById('f-trans-tipo');
     const recurrence = document.getElementById('f-trans-recorrencia');
@@ -212,17 +234,14 @@
     const desc = document.getElementById('f-trans-desc');
     const date = document.getElementById('f-trans-data');
     if (!amount || !desc || !date) return;
-
     content.classList.add('gg-transaction-form');
     addHandle();
-
     const heading = content.querySelector('h3');
     const fixedCardContext = !type && !!document.getElementById('f-trans-cartao-group');
     if (heading) {
       heading.textContent = fixedCardContext ? 'Nova compra no cartão' : (heading.textContent.includes('Editar') ? 'Editar transação' : 'Nova transação');
       heading.classList.add('gg-transaction-title');
     }
-
     if (type && !type.dataset.ggChoiceReady) {
       const allowed = [...type.options].map(option => option.value);
       makeChoiceGroup(type, [
@@ -232,7 +251,6 @@
         { value: 'cartao', label: 'Cartão', icon: '💳' }
       ].filter(option => allowed.includes(option.value)), 'gg-type-choices');
     }
-
     if (recurrence && !recurrence.dataset.ggChoiceReady) {
       makeChoiceGroup(recurrence, [
         { value: 'nenhuma', label: 'Nenhuma' },
@@ -242,25 +260,21 @@
         { value: 'parcelado', label: 'Parcelado' }
       ].filter(option => [...recurrence.options].some(o => o.value === option.value)), 'gg-recurrence-choices');
     }
-
     amount.classList.add('gg-amount-input');
     amount.setAttribute('inputmode', 'decimal');
     amount.setAttribute('placeholder', 'R$ 0,00');
     amount.setAttribute('aria-label', 'Valor');
     const amountLabel = [...content.querySelectorAll('label')].find(l => l.textContent.trim().toLowerCase().startsWith('valor'));
     if (amountLabel) amountLabel.textContent = 'Valor';
-
     content.querySelectorAll('label').forEach(label => label.classList.add('gg-form-label'));
     const save = [...content.querySelectorAll('button')].find(b => /^salvar/i.test(b.textContent.trim()));
     if (save) { save.classList.add('gg-save-button'); save.textContent = 'Salvar'; }
-
     const accountSelect = document.getElementById('f-trans-conta');
     const destinationSelect = document.getElementById('f-trans-conta-dest');
     const accountGroup = document.getElementById('f-trans-conta-group');
     const destinationGroup = document.getElementById('f-trans-dest-group');
     if (accountGroup) accountGroup.classList.add('gg-origin-group');
     if (destinationGroup) destinationGroup.classList.add('gg-destination-group');
-
     const updateVisibility = () => {
       const currentType = type ? type.value : 'cartao';
       const categoryGroup = document.getElementById('f-trans-categoria-group');
@@ -268,21 +282,19 @@
       content.classList.toggle('gg-is-transfer', currentType === 'transferencia');
       content.classList.toggle('gg-is-card', currentType === 'cartao' || fixedCardContext);
       document.getElementById('f-trans-tipo-group')?.classList.toggle('gg-type-hidden', currentType === 'cartao' || fixedCardContext);
-
       const choiceGroup = type?.nextElementSibling;
       if (type && choiceGroup?.classList.contains('gg-choice-group')) syncChoiceGroup(type, choiceGroup);
-
       const transferFlow = currentType === 'transferencia' ? addTransferFlow(content, accountSelect, destinationSelect) : content.querySelector('.gg-transfer-flow');
       transferFlow?.classList.toggle('gg-hidden-context', currentType !== 'transferencia');
-
+      accountGroup?.classList.toggle('gg-hidden-context', currentType === 'transferencia');
+      destinationGroup?.classList.toggle('gg-hidden-context', currentType === 'transferencia');
       const cardGroup = document.getElementById('f-trans-cartao-group');
       cardGroup?.classList.toggle('gg-hidden-context', currentType !== 'cartao' || fixedCardContext);
       if (currentType === 'cartao') addContextCard(content, document.getElementById('f-trans-cartao'));
       content.querySelector('.gg-card-context')?.classList.toggle('gg-hidden-context', currentType !== 'cartao' && !fixedCardContext);
-
       if (heading) heading.textContent = currentType === 'cartao' || fixedCardContext ? 'Nova compra no cartão' : (heading.textContent.includes('Editar') ? 'Editar transação' : 'Nova transação');
+      reorderTransactionFields(content);
     };
-
     if (type) type.addEventListener('change', updateVisibility);
     setupValidation(content);
     updateViewportForKeyboard(content);

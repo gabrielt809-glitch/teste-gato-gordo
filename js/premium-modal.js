@@ -6,7 +6,6 @@
 
   const modal = () => document.getElementById('modal');
   const inner = () => document.getElementById('modal-content-inner');
-
   const SVG = {
     transfer: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12"/><path d="m15 3 4 4-4 4"/><path d="M17 17H5"/><path d="m9 21-4-4 4-4"/></svg>',
     bank: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-5 9 5"/><path d="M5 10v7M9 10v7M15 10v7M19 10v7"/><path d="M3 20h18"/></svg>'
@@ -27,8 +26,7 @@
 
   function makeChoiceGroup(select, options, className) {
     if (!select) return null;
-    const existing = select.nextElementSibling;
-    if (select.dataset.ggChoiceReady === 'true') return existing;
+    if (select.dataset.ggChoiceReady === 'true') return select.nextElementSibling;
     const group = document.createElement('div');
     group.className = `gg-choice-group ${className || ''}`;
     group.setAttribute('role', 'group');
@@ -58,19 +56,26 @@
   }
 
   function addContextCard(content, cardSelect) {
-    if (content.querySelector('.gg-card-context')) return;
+    let wrap = content.querySelector('.gg-card-context');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'gg-card-context';
+      const heading = content.querySelector('h3');
+      heading?.insertAdjacentElement('afterend', wrap);
+    }
     const card = cardSelect?.options[cardSelect.selectedIndex];
-    const wrap = document.createElement('div');
-    wrap.className = 'gg-card-context';
     wrap.innerHTML = `<div class="gg-context-icon">💳</div><div><strong>Compra no cartão</strong><span>Será adicionada à fatura de ${card ? card.textContent.trim() : 'seu cartão'}</span></div>`;
-    const heading = content.querySelector('h3');
-    heading?.insertAdjacentElement('afterend', wrap);
   }
 
   function addTransferFlow(content, accountSelect, destinationSelect) {
-    if (!accountSelect || !destinationSelect || content.querySelector('.gg-transfer-flow')) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'gg-transfer-flow';
+    if (!accountSelect || !destinationSelect) return null;
+    let wrap = content.querySelector('.gg-transfer-flow');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'gg-transfer-flow';
+      const accountGroup = accountSelect.closest('#f-trans-conta-group');
+      accountGroup?.appendChild(wrap);
+    }
 
     const makeNode = (title, select) => {
       const option = select.options[select.selectedIndex];
@@ -81,29 +86,32 @@
       return node;
     };
 
-    const from = makeNode('De', accountSelect);
-    const arrow = document.createElement('div');
-    arrow.className = 'gg-transfer-arrow';
-    arrow.innerHTML = '↓';
-    const to = makeNode('Para', destinationSelect);
-    wrap.append(from, arrow, to);
+    if (!wrap.dataset.ready) {
+      wrap.innerHTML = '';
+      wrap.append(makeNode('De', accountSelect));
+      const arrow = document.createElement('div');
+      arrow.className = 'gg-transfer-arrow';
+      arrow.innerHTML = '↓';
+      wrap.appendChild(arrow);
+      wrap.append(makeNode('Para', destinationSelect));
+      wrap.dataset.ready = 'true';
 
-    accountSelect.hidden = true;
-    destinationSelect.hidden = true;
-    accountSelect.setAttribute('aria-hidden', 'true');
-    destinationSelect.setAttribute('aria-hidden', 'true');
-    accountSelect.parentElement.appendChild(wrap);
+      accountSelect.hidden = true;
+      destinationSelect.hidden = true;
+      accountSelect.setAttribute('aria-hidden', 'true');
+      destinationSelect.setAttribute('aria-hidden', 'true');
 
-    const refresh = () => {
-      const selects = [accountSelect, destinationSelect];
-      wrap.querySelectorAll('.gg-transfer-node').forEach((node, i) => {
-        const option = selects[i].options[selects[i].selectedIndex];
-        const name = node.querySelector('.gg-transfer-name');
-        if (name) name.textContent = option ? option.textContent.trim() : 'Selecionar conta';
-      });
-    };
-    accountSelect.addEventListener('change', refresh);
-    destinationSelect.addEventListener('change', refresh);
+      const refresh = () => {
+        [accountSelect, destinationSelect].forEach((select, i) => {
+          const option = select.options[select.selectedIndex];
+          const name = wrap.querySelectorAll('.gg-transfer-node')[i]?.querySelector('.gg-transfer-name');
+          if (name) name.textContent = option ? option.textContent.trim() : 'Selecionar conta';
+        });
+      };
+      accountSelect.addEventListener('change', refresh);
+      destinationSelect.addEventListener('change', refresh);
+    }
+    return wrap;
   }
 
   function improveTransaction(content) {
@@ -118,21 +126,20 @@
     addHandle();
 
     const heading = content.querySelector('h3');
-    const cardContext = !type && !!document.getElementById('f-trans-cartao-group');
+    const fixedCardContext = !type && !!document.getElementById('f-trans-cartao-group');
     if (heading) {
-      heading.textContent = cardContext ? 'Nova compra no cartão' : (heading.textContent.includes('Editar') ? 'Editar transação' : 'Nova transação');
+      heading.textContent = fixedCardContext ? 'Nova compra no cartão' : (heading.textContent.includes('Editar') ? 'Editar transação' : 'Nova transação');
       heading.classList.add('gg-transaction-title');
     }
 
     if (type && !type.dataset.ggChoiceReady) {
       const allowed = [...type.options].map(option => option.value);
-      const typeOptions = [
+      makeChoiceGroup(type, [
         { value: 'despesa', label: 'Despesa', icon: '−' },
         { value: 'receita', label: 'Receita', icon: '+' },
         { value: 'transferencia', label: 'Transferência', icon: SVG.transfer },
         { value: 'cartao', label: 'Cartão', icon: '💳' }
-      ].filter(option => allowed.includes(option.value));
-      makeChoiceGroup(type, typeOptions, 'gg-type-choices');
+      ].filter(option => allowed.includes(option.value)), 'gg-type-choices');
     }
 
     if (recurrence && !recurrence.dataset.ggChoiceReady) {
@@ -149,17 +156,15 @@
     amount.setAttribute('inputmode', 'decimal');
     amount.setAttribute('placeholder', 'R$ 0,00');
     amount.setAttribute('aria-label', 'Valor');
-
     const amountLabel = [...content.querySelectorAll('label')].find(l => l.textContent.trim().toLowerCase().startsWith('valor'));
     if (amountLabel) amountLabel.textContent = 'Valor';
 
     content.querySelectorAll('label').forEach(label => label.classList.add('gg-form-label'));
     const save = [...content.querySelectorAll('button')].find(b => /^salvar/i.test(b.textContent.trim()));
-    if (save) {
-      save.classList.add('gg-save-button');
-      save.textContent = 'Salvar';
-    }
+    if (save) { save.classList.add('gg-save-button'); save.textContent = 'Salvar'; }
 
+    const accountSelect = document.getElementById('f-trans-conta');
+    const destinationSelect = document.getElementById('f-trans-conta-dest');
     const accountGroup = document.getElementById('f-trans-conta-group');
     const destinationGroup = document.getElementById('f-trans-dest-group');
     if (accountGroup) accountGroup.classList.add('gg-origin-group');
@@ -168,40 +173,32 @@
     const updateVisibility = () => {
       const currentType = type ? type.value : 'cartao';
       const categoryGroup = document.getElementById('f-trans-categoria-group');
-      if (categoryGroup) categoryGroup.classList.toggle('gg-hidden-context', currentType === 'transferencia' || currentType === 'cartao');
+      categoryGroup?.classList.toggle('gg-hidden-context', currentType === 'transferencia' || currentType === 'cartao');
       content.classList.toggle('gg-is-transfer', currentType === 'transferencia');
-      content.classList.toggle('gg-is-card', currentType === 'cartao' || cardContext);
+      content.classList.toggle('gg-is-card', currentType === 'cartao' || fixedCardContext);
+      document.getElementById('f-trans-tipo-group')?.classList.toggle('gg-type-hidden', currentType === 'cartao' || fixedCardContext);
 
-      const typeGroup = document.getElementById('f-trans-tipo-group');
-      if (typeGroup) typeGroup.classList.toggle('gg-type-hidden', currentType === 'cartao');
+      const choiceGroup = type?.nextElementSibling;
+      if (type && choiceGroup?.classList.contains('gg-choice-group')) syncChoiceGroup(type, choiceGroup);
 
-      const group = type?.nextElementSibling;
-      if (type && group?.classList.contains('gg-choice-group')) syncChoiceGroup(type, group);
+      const transferFlow = currentType === 'transferencia' ? addTransferFlow(content, accountSelect, destinationSelect) : content.querySelector('.gg-transfer-flow');
+      transferFlow?.classList.toggle('gg-hidden-context', currentType !== 'transferencia');
 
-      if (currentType === 'transferencia') {
-        addTransferFlow(content, accountGroup?.querySelector('select') || document.getElementById('f-trans-conta'), document.getElementById('f-trans-conta-dest'));
-      }
+      const cardGroup = document.getElementById('f-trans-cartao-group');
+      cardGroup?.classList.toggle('gg-hidden-context', currentType !== 'cartao' || fixedCardContext);
+      if (currentType === 'cartao') addContextCard(content, document.getElementById('f-trans-cartao'));
+      content.querySelector('.gg-card-context')?.classList.toggle('gg-hidden-context', currentType !== 'cartao' && !fixedCardContext);
     };
 
     if (type) type.addEventListener('change', updateVisibility);
     updateVisibility();
-
-    if (cardContext) addContextCard(content, document.getElementById('f-trans-cartao'));
-
-    const transferAccount = document.getElementById('f-trans-conta');
-    const transferDestination = document.getElementById('f-trans-conta-dest');
-    if (type?.value === 'transferencia') addTransferFlow(content, transferAccount, transferDestination);
   }
 
   function enhance() {
     const m = modal();
     const content = inner();
     if (!m || !content) return;
-    const visible = !m.classList.contains('hidden');
-    if (!visible) {
-      m.classList.remove('gg-modal-v2');
-      return;
-    }
+    if (m.classList.contains('hidden')) { m.classList.remove('gg-modal-v2'); return; }
     m.classList.add('gg-modal-v2');
     addHandle();
     if (document.getElementById('f-trans-valor')) improveTransaction(content);

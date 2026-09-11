@@ -26,6 +26,17 @@
     premiumHome.onerror = () => console.warn('Home Premium não carregou; a Home original continua disponível.');
     document.body.appendChild(premiumHome);
 
+    // Sprint Premium: novo sistema de modais, sem substituir as funções existentes.
+    const modalCss = document.createElement('link');
+    modalCss.rel = 'stylesheet';
+    modalCss.href = 'css/premium-modal.css';
+    document.head.appendChild(modalCss);
+    const modalEnhancer = document.createElement('script');
+    modalEnhancer.src = 'js/premium-modal.js';
+    modalEnhancer.defer = true;
+    modalEnhancer.onerror = () => console.warn('Sistema de modais Premium não carregou; os modais originais continuam disponíveis.');
+    document.body.appendChild(modalEnhancer);
+
     if ('serviceWorker' in navigator && isSecureContext) {
         addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(error => {

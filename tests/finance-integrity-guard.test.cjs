@@ -12,15 +12,19 @@ afterEach(()=>{
   delete global.GatoFinanceIntegrityGuard;
   delete global.mostrarAlerta;
   delete global.mostrarToast;
+  delete global.__called;
+  delete global.__alert;
   delete require.cache[require.resolve('../js/parcelamentos.js')];
 });
 
 function setup(result){
+  global.__called=0;
+  global.__alert='';
   global.openModal=()=>{};
   global.salvarTransacao=()=>{};
   global.confirmarExcluirTransacao=()=>{};
-  global.salvarTransacaoAcao=()=>{global.__called=(global.__called||0)+1;};
-  global.excluirTransacaoAcao=()=>{global.__called=(global.__called||0)+1;};
+  global.salvarTransacaoAcao=()=>{global.__called++;};
+  global.excluirTransacaoAcao=()=>{global.__called++;};
   global.gatoStorage={getItem:()=>JSON.stringify([{contas:[],cartoes:[],transacoes:[]}])};
   global.GatoFinance={audit:()=>result};
   global.mostrarAlerta=(message)=>{global.__alert=message;};
@@ -32,7 +36,7 @@ test('guard bloqueia edição e exclusão quando a auditoria encontra erros',()=
   assert.equal(global.GatoFinanceIntegrityGuard.auditBefore('teste'),false);
   global.salvarTransacaoAcao(1,'apenas');
   global.excluirTransacaoAcao(1,'apenas');
-  assert.equal(global.__called,undefined);
+  assert.equal(global.__called,0);
   assert.match(global.__alert,/Operação bloqueada/);
 });
 

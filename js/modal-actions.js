@@ -47,6 +47,15 @@
                 background:rgba(245,158,11,.10); color:#fbbf24; font-size:12px; font-weight:900;
             }
             #modal .gg-scope-actions button:hover { transform:translateY(-1px); border-color:rgba(245,158,11,.30); background:rgba(245,158,11,.055); }
+            #modal .gg-scope-actions button[aria-pressed="true"],
+            #modal .gg-scope-actions button.selected,
+            #modal .gg-scope-actions button.active {
+                border-color:rgba(245,158,11,.45); background:rgba(245,158,11,.10);
+                box-shadow:0 0 0 1px rgba(245,158,11,.08), 0 8px 22px rgba(0,0,0,.14);
+            }
+            #modal .gg-scope-actions button[aria-pressed="true"]::before,
+            #modal .gg-scope-actions button.selected::before,
+            #modal .gg-scope-actions button.active::before { background:#f59e0b; color:#111827; }
             #modal .gg-scope-actions button:nth-child(2)::before { content:'→'; }
             #modal .gg-scope-actions button:nth-child(3)::before { content:'∞'; }
             #modal .gg-scope-actions button p:first-child { font-size:14px !important; margin:0 0 4px !important; }
@@ -207,6 +216,17 @@
             b.classList.add('gg-scope-choice');
             group.appendChild(b);
         });
+
+        const syncSelection = () => {
+            scopeButtons.forEach(button => {
+                const selected = button.getAttribute('aria-pressed') === 'true' || button.classList.contains('selected') || button.classList.contains('active');
+                button.classList.toggle('gg-scope-selected', selected);
+            });
+        };
+        scopeButtons.forEach(button => {
+            button.addEventListener('click', () => setTimeout(syncSelection, 0), { passive: true });
+        });
+        syncSelection();
 
         const cancel = buttons(inner).find(b => /cancelar/i.test(b.textContent || ''));
         if (cancel) cancel.classList.add('gg-scope-cancel');

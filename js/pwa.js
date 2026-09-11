@@ -15,6 +15,17 @@
     integrity.onerror = () => console.warn('Camada de integridade não carregou; funcionalidades financeiras continuam disponíveis.');
     document.body.appendChild(integrity);
 
+    // Sprint Premium: camada visual isolada da lógica financeira.
+    const premiumCss = document.createElement('link');
+    premiumCss.rel = 'stylesheet';
+    premiumCss.href = 'css/premium-home.css';
+    document.head.appendChild(premiumCss);
+    const premiumHome = document.createElement('script');
+    premiumHome.src = 'js/premium-home.js';
+    premiumHome.defer = true;
+    premiumHome.onerror = () => console.warn('Home Premium não carregou; a Home original continua disponível.');
+    document.body.appendChild(premiumHome);
+
     if ('serviceWorker' in navigator && isSecureContext) {
         addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(error => {

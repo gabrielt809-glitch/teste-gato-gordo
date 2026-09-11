@@ -114,6 +114,97 @@
     return wrap;
   }
 
+  function showFieldError(field, message) {
+    if (!field) return false;
+    field.classList.add('gg-field-error');
+    field.setAttribute('aria-invalid', 'true');
+    let error = field.parentElement?.querySelector('.gg-inline-error');
+    if (!error) {
+      error = document.createElement('div');
+      error.className = 'gg-inline-error';
+      field.insertAdjacentElement('afterend', error);
+    }
+    error.textContent = message;
+    return false;
+  }
+
+  function clearFieldError(field) {
+    if (!field) return;
+    field.classList.remove('gg-field-error');
+    field.removeAttribute('aria-invalid');
+    field.parentElement?.querySelector('.gg-inline-error')?.remove();
+  }
+
+  function validateTransaction(content) {
+    const type = document.getElementById('f-trans-tipo');
+    const amount = document.getElementById('f-trans-valor');
+    const category = document.getElementById('f-trans-categoria');
+    const account = document.getElementById('f-trans-conta');
+    const destination = document.getElementById('f-trans-conta-dest');
+    const currentType = type ? type.value : 'cartao';
+    let valid = true;
+
+    clearFieldError(amount);
+    clearFieldError(category);
+    clearFieldError(account);
+    clearFieldError(destination);
+
+    const rawAmount = String(amount?.value ?? '').replace(/[^0-9,.-]/g, '').replace(',', '.');
+    if (!amount || !Number.isFinite(Number(rawAmount)) || Number(rawAmount) <= 0) {
+      showFieldError(amount, 'Informe um valor maior que zero.');
+      valid = false;
+    }
+
+    if (currentType === 'transferencia') {
+      if (!account?.value) { showFieldError(account, 'Escolha a conta de origem.'); valid = false; }
+      if (!destination?.value) { showFieldError(destination, 'Escolha a conta de destino.'); valid = false; }
+      if (account?.value && destination?.value && account.value === destination.value) {
+        showFieldError(destination, 'A conta de destino deve ser diferente da origem.');
+        valid = false;
+      }
+    } else if (currentType !== 'cartao' && category && !category.value) {
+      showFieldError(category, 'Escolha uma categoria.');
+      valid = false;
+    }
+
+    if (!valid) {
+      const firstError = content.querySelector('.gg-field-error');
+      firstError?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      firstError?.focus({ preventScroll: true });
+    }
+    return valid;
+  }
+
+  function setupValidation(content) {
+    if (content.dataset.ggValidationReady === 'true') return;
+    content.dataset.ggValidationReady = 'true';
+    content.addEventListener('click', event => {
+      const save = event.target.closest('.gg-save-button');
+      if (!save || !validateTransaction(content)) {
+        if (save) event.preventDefault();
+        return;
+      }
+    }, true);
+
+    ['input', 'change'].forEach(type => content.addEventListener(type, event => {
+      if (event.target.matches('#f-trans-valor, #f-trans-categoria, #f-trans-conta, #f-trans-conta-dest')) clearFieldError(event.target);
+    }));
+  }
+
+  function updateViewportForKeyboard(content) {
+    if (!window.visualViewport || content.dataset.ggViewportReady === 'true') return;
+    content.dataset.ggViewportReady = 'true';
+    const sync = () => {
+      const m = modal();
+      if (!m?.classList.contains('gg-modal-v2')) return;
+      const keyboardOffset = Math.max(0, window.innerHeight - window.visualViewport.height);
+      m.style.setProperty('--gg-keyboard-offset', `${keyboardOffset}px`);
+    };
+    window.visualViewport.addEventListener('resize', sync);
+    window.visualViewport.addEventListener('scroll', sync);
+    sync();
+  }
+
   function improveTransaction(content) {
     const type = document.getElementById('f-trans-tipo');
     const recurrence = document.getElementById('f-trans-recorrencia');
@@ -188,9 +279,13 @@
       cardGroup?.classList.toggle('gg-hidden-context', currentType !== 'cartao' || fixedCardContext);
       if (currentType === 'cartao') addContextCard(content, document.getElementById('f-trans-cartao'));
       content.querySelector('.gg-card-context')?.classList.toggle('gg-hidden-context', currentType !== 'cartao' && !fixedCardContext);
+
+      if (heading) heading.textContent = currentType === 'cartao' || fixedCardContext ? 'Nova compra no cartão' : (heading.textContent.includes('Editar') ? 'Editar transação' : 'Nova transação');
     };
 
     if (type) type.addEventListener('change', updateVisibility);
+    setupValidation(content);
+    updateViewportForKeyboard(content);
     updateVisibility();
   }
 
@@ -198,7 +293,8 @@
     const m = modal();
     const content = inner();
     if (!m || !content) return;
-    if (m.classList.contains('hidden')) { m.classList.remove('gg-modal-v2'); return; }
+    if (m.classList.contains('hidden')) { m.classList.remove('gg-modal-v2'); m.classList.remove('modal-premium'); return; }
+    m.classList.add('modal-premium');
     m.classList.add('gg-modal-v2');
     addHandle();
     if (document.getElementById('f-trans-valor')) improveTransaction(content);
@@ -213,7 +309,7 @@
     observer.observe(content, { childList: true, subtree: true, characterData: true });
     document.addEventListener('focusin', event => {
       if (!m.classList.contains('gg-modal-v2') || !event.target.closest('#modal')) return;
-      setTimeout(() => event.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80);
+      setTimeout(() => event.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 80);
     });
     enhance();
   }

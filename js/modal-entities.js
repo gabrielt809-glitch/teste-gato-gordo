@@ -32,9 +32,9 @@
                 border:1px solid rgba(255,255,255,.055); margin-top:12px;
             }
             #modal .gg-entity-form .gg-field-section:first-of-type { margin-top:0; }
-            #modal .gg-entity-form .gg-section-label {
+            #modal .gg-entity-form .gg-field-section > label {
                 display:block; margin:0 0 9px; color:rgba(156,163,175,.78);
-                font-size:10px; font-weight:800; letter-spacing:.11em; text-transform:uppercase;
+                font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
             }
             #modal .gg-entity-form .gg-money-field {
                 min-height:74px !important; height:auto !important; padding:14px 16px !important;
@@ -95,16 +95,15 @@
         heading.replaceWith(wrap);
     }
 
-    function sectionize(inner, selector, className, label) {
+    function sectionize(inner, selector, className) {
         const field = inner.querySelector(selector);
         if (!field || field.closest('.gg-field-section')) return;
         const group = document.createElement('div');
         group.className = `gg-field-section ${className || ''}`.trim();
-        const labelEl = document.createElement('span');
-        labelEl.className = 'gg-section-label';
-        labelEl.textContent = label;
+        const label = field.parentElement?.querySelector(`label[for="${field.id}"]`) || field.previousElementSibling;
+        if (label && label.tagName === 'LABEL') group.appendChild(label);
         field.parentNode.insertBefore(group, field);
-        group.append(labelEl, field);
+        group.appendChild(field);
     }
 
     function markSave(inner) {
@@ -122,9 +121,9 @@
         if (name) name.classList.add('gg-primary-input');
         if (saldo) saldo.classList.add('gg-money-field');
         if (appearance) appearance.classList.add('gg-appearance-row');
-        sectionize(inner, '#f-conta-nome', 'gg-name-section', 'Identificação');
-        sectionize(inner, '#f-conta-tipo', 'gg-type-section', 'Tipo de conta');
-        sectionize(inner, '#f-conta-saldo', 'gg-balance-section', 'Saldo inicial');
+        sectionize(inner, '#f-conta-nome', 'gg-name-section');
+        sectionize(inner, '#f-conta-tipo', 'gg-type-section');
+        sectionize(inner, '#f-conta-saldo', 'gg-balance-section');
         markSave(inner);
     }
 
@@ -137,9 +136,9 @@
         const appearance = inner.querySelector('#f-cartao-icone')?.closest('.grid');
         if (limit) limit.classList.add('gg-money-field');
         if (appearance) appearance.classList.add('gg-appearance-row');
-        sectionize(inner, '#f-cartao-nome', 'gg-name-section', 'Identificação');
-        sectionize(inner, '#f-cartao-limite', 'gg-limit-section', 'Limite do cartão');
-        sectionize(inner, '#f-cartao-fecha', 'gg-cycle-section', 'Ciclo da fatura');
+        sectionize(inner, '#f-cartao-nome', 'gg-name-section');
+        sectionize(inner, '#f-cartao-limite', 'gg-limit-section');
+        sectionize(inner, '#f-cartao-fecha', 'gg-cycle-section');
         markSave(inner);
     }
 

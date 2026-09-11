@@ -40,6 +40,29 @@
                 min-height:74px !important; height:auto !important; padding:14px 16px !important;
                 font-size:25px !important; font-weight:800 !important; letter-spacing:-.02em;
             }
+            #modal .gg-entity-form .gg-primary-input { font-size:18px !important; font-weight:700 !important; }
+            #modal .gg-entity-form .gg-balance-section,
+            #modal .gg-card-form .gg-limit-section,
+            #modal .gg-meta-form .gg-target-section {
+                padding:16px !important;
+                background:linear-gradient(135deg,rgba(245,158,11,.085),rgba(255,255,255,.025));
+                border-color:rgba(245,158,11,.12);
+            }
+            #modal .gg-card-form .gg-limit-section {
+                background:linear-gradient(135deg,rgba(59,130,246,.10),rgba(255,255,255,.025));
+                border-color:rgba(96,165,250,.15);
+            }
+            #modal .gg-meta-form .gg-target-section {
+                background:linear-gradient(135deg,rgba(168,85,247,.10),rgba(255,255,255,.025));
+                border-color:rgba(192,132,252,.15);
+            }
+            #modal .gg-balance-section .gg-money-field,
+            #modal .gg-limit-section .gg-money-field,
+            #modal .gg-target-section .gg-money-field {
+                border-color:transparent !important;
+                background:rgba(0,0,0,.14) !important;
+                box-shadow:none !important;
+            }
             #modal .gg-entity-form .gg-appearance-row { margin-top:12px; }
             #modal .gg-entity-form .gg-save-button {
                 margin-top:16px !important; min-height:56px !important; border-radius:17px !important;
@@ -49,10 +72,10 @@
                 color:rgba(156,163,175,.62); font-size:11px; line-height:1.45; margin-top:8px;
             }
             #modal .gg-card-form .gg-entity-icon { background:rgba(59,130,246,.11); color:#60a5fa; border-color:rgba(96,165,250,.15); }
-            #modal .gg-card-form .gg-limit-section { border-color:rgba(59,130,246,.12); background:rgba(59,130,246,.035); }
             #modal .gg-card-form .gg-money-field { color:#fff; }
             #modal .gg-meta-form .gg-entity-icon { background:rgba(168,85,247,.11); color:#c084fc; border-color:rgba(192,132,252,.15); }
             #modal .gg-meta-form .gg-money-field { color:#fff; }
+            #modal .gg-meta-progress { margin-top:12px; }
             #modal .gg-danger-confirm .gg-confirm-icon {
                 width:58px; height:58px; margin:0 auto 14px; display:grid; place-items:center;
                 border-radius:19px; background:rgba(239,68,68,.11); color:#f87171;
@@ -68,6 +91,7 @@
                 #modal .gg-entity-form .gg-entity-hero { padding-top:2px; margin-bottom:16px; }
                 #modal .gg-entity-form .gg-field-section { padding:12px; }
                 #modal .gg-entity-form .gg-money-field { font-size:24px !important; }
+                #modal .gg-entity-form .gg-primary-input { font-size:17px !important; }
             }
         `;
         document.head.appendChild(style);
@@ -150,6 +174,11 @@
         hero(inner, '🎯', 'Defina um objetivo e acompanhe seu progresso');
         const money = inner.querySelector('#f-meta-obj, #f-meta-atual');
         if (money) money.classList.add('gg-money-field');
+        const target = inner.querySelector('#f-meta-obj');
+        if (target) target.classList.add('gg-meta-target');
+        sectionize(inner, '#f-meta-nome', 'gg-name-section');
+        sectionize(inner, '#f-meta-obj', 'gg-target-section');
+        sectionize(inner, '#f-meta-atual', 'gg-current-section');
         markSave(inner);
     }
 

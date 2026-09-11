@@ -293,11 +293,18 @@
     const m = modal();
     const content = inner();
     if (!m || !content) return;
-    if (m.classList.contains('hidden')) { m.classList.remove('gg-modal-v2'); m.classList.remove('modal-premium'); return; }
+    const isTransaction = !!document.getElementById('f-trans-valor');
+    if (m.classList.contains('hidden')) {
+      m.classList.remove('gg-modal-v2');
+      m.classList.remove('modal-premium');
+      return;
+    }
     m.classList.add('modal-premium');
-    m.classList.add('gg-modal-v2');
-    addHandle();
-    if (document.getElementById('f-trans-valor')) improveTransaction(content);
+    m.classList.toggle('gg-modal-v2', isTransaction);
+    if (isTransaction) {
+      addHandle();
+      improveTransaction(content);
+    }
   }
 
   function init() {

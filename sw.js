@@ -1,11 +1,11 @@
 /* Aumentar VERSION a cada alteração nos arquivos essenciais. */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const PREFIX = 'gato-gordo-' + encodeURIComponent(self.registration.scope) + '-';
 const CACHE = PREFIX + VERSION;
 const LOCAL = [
     './', 'index.html', 'css/style.css',
     'js/backup.js', 'js/app.js', 'js/pwa.js', 'js/storage.js', 'js/sync-config.js',
-    'js/bootstrap.js', 'js/finance.js', 'js/transacoes.js',
+    'js/bootstrap.js', 'js/finance.js', 'js/transacoes.js', 'js/transacoes-integridade.js',
     'js/ciclos-cartao.js', 'js/faturas.js', 'js/faturas-ciclos.js',
     'js/parcelamentos.js', 'js/projecao-faturas.js',
     'manifest.json', 'assets/app_icon_dark.png', 'assets/cat_mascot.png', 'assets/logo.png'

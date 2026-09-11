@@ -23,7 +23,6 @@
 
     if (!amount || !desc || !date || !save) return;
 
-    const amountGrid = amount.closest('.grid');
     const amountCell = amount.parentElement;
     const dateCell = date.parentElement;
     const firstGrid = typeGroup?.parentElement?.classList.contains('grid')
@@ -63,17 +62,11 @@
     const helper = [...root.children].find(el => el.tagName === 'P' && /recorr/i.test(el.textContent));
     append(helper, parcelasGroup);
 
-    const currentType = type ? type.value : 'cartao';
-    if (currentType === 'transferencia') {
-      const transferFlow = content.querySelector('.gg-transfer-flow');
-      append(transferFlow, accountGroup, destinationGroup);
-    } else if (currentType === 'cartao') {
-      append(cardGroup);
-    } else {
-      append(accountGroup);
-    }
-
+    // Todos os contextos ficam no mesmo layout. A camada visual decide quais aparecem.
+    const transferFlow = content.querySelector('.gg-transfer-flow');
+    append(transferFlow, accountGroup, destinationGroup, cardGroup);
     append(save);
+
     root.appendChild(layout);
     root.dataset.ggLayoutReady = 'true';
     root.parentElement?.classList.add('gg-order-ready');

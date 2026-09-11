@@ -49,7 +49,7 @@
                 t.compraData = first.data;
                 t.descricao = `${baseDescription(t.descricao)} (${t.parcelaNumero || 1}/${group.length})`;
             });
-            root.gatoStorage.setItem('gato_gordo_perfis', JSON.stringify(p));
+            root.gatoStorage.setItem('gato_gordo_perfis', JSON.stringify([p]));
             return true;
         } catch (_) { return false; }
     }

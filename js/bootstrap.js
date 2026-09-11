@@ -2,6 +2,9 @@
 (function () {
     'use strict';
     let fatalDialog = null;
+    let appStarted = false;
+    let startupFinished = false;
+
     function element(tag, text, parent) {
         const el = document.createElement(tag);
         if (text) el.textContent = text;
@@ -27,6 +30,43 @@
         el.showModal();
         return el;
     }
+    function safeErrorMessage(error) {
+        if (!error) return 'Erro desconhecido.';
+        return error.message || String(error);
+    }
+    function showFatal(title, message, error) {
+        console.error(title, error || message);
+        if (document.getElementById('startup-fatal')) return;
+        const view = element('div', '', document.body);
+        view.id = 'startup-fatal';
+        view.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#000;color:#fff;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+        const card = element('div', '', view);
+        card.style.cssText = 'width:min(100%,430px);padding:24px;border:1px solid #333;border-radius:22px;background:#171717;box-shadow:0 20px 60px rgba(0,0,0,.5)';
+        element('div', '⚠️', card).style.cssText = 'font-size:34px;margin-bottom:12px';
+        element('h2', title, card).style.cssText = 'font-size:20px;font-weight:700;margin:0 0 8px';
+        element('p', message, card).style.cssText = 'color:#aaa;margin:0 0 14px';
+        if (error) {
+            const details = element('details', '', card);
+            element('summary', 'Detalhes técnicos', details).style.cssText = 'cursor:pointer;color:#fbbf24';
+            const pre = element('pre', safeErrorMessage(error), details);
+            pre.style.cssText = 'white-space:pre-wrap;word-break:break-word;color:#999;font-size:11px;margin-top:10px';
+        }
+        button(card, 'Recarregar', () => location.reload());
+        button(card, 'Baixar dados para recuperação', () => downloadRaw());
+    }
+    function handleRuntimeError(error) {
+        if (!startupFinished || !appStarted) {
+            showFatal('Não foi possível abrir o Gato Gordo', 'O app encontrou um erro durante a inicialização. Seus dados locais não foram apagados.', error);
+        }
+    }
+    addEventListener('error', event => {
+        const file = event.filename || '';
+        if (!startupFinished || file.includes('/js/app.js') || file.includes('/js/bootstrap.js')) {
+            handleRuntimeError(event.error || new Error(event.message || 'Erro de JavaScript.'));
+        }
+    });
+    addEventListener('unhandledrejection', event => handleRuntimeError(event.reason instanceof Error ? event.reason : new Error(String(event.reason || 'Promise rejeitada.'))));
+
     const warning = element('div', '', document.body);
     warning.id = 'storage-warning'; warning.setAttribute('role', 'status');
     warning.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:110;padding:6px 12px calc(6px + env(safe-area-inset-top));background:#78350f;color:white;font:12px/1.4 sans-serif;text-align:center';
@@ -121,11 +161,13 @@
         const entityScript = document.createElement('script'); entityScript.src = 'js/modal-entities.js?v=3'; document.body.appendChild(entityScript);
         const actionsScript = document.createElement('script'); actionsScript.src = 'js/modal-actions.js?v=2'; document.body.appendChild(actionsScript);
     }
-    document.getElementById('login-form').textContent = 'Abrindo seus dados…';
-    storage.init().then(result => {
-        if (!result.ready) { recoveryScreen(result); return; }
-        const script = document.createElement('script'); script.src = 'js/app.js';
+    function loadApp() {
+        if (appStarted) return;
+        appStarted = true;
+        const script = document.createElement('script');
+        script.src = 'js/app.js?v=1';
         script.onload = () => {
+            startupFinished = true;
             loadModalUX();
             const ciclos = document.createElement('script'); ciclos.src = 'js/ciclos-cartao.js';
             ciclos.onload = () => {
@@ -159,11 +201,31 @@
             document.body.appendChild(ciclos);
         };
         script.onerror = () => {
-            const view = dialog('Não foi possível abrir o app', true);
-            element('p', 'Seus dados foram preservados. Tente recarregar com conexão.', view);
-            button(view, 'Recarregar', () => location.reload());
-            button(view, 'Baixar dados para recuperação', downloadRaw);
+            startupFinished = true;
+            showFatal('Não foi possível carregar o app', 'O arquivo principal não pôde ser carregado. Seus dados locais foram preservados.', new Error('Falha ao carregar js/app.js'));
         };
         document.body.appendChild(script);
-    }).catch(error => recoveryScreen({reason:'Não foi possível iniciar o armazenamento: ' + error.message,snapshots:[]}));
+    }
+    document.getElementById('login-form').textContent = 'Abrindo seus dados…';
+
+    // O app não pode ficar bloqueado esperando IndexedDB. O armazenamento principal
+    // é o localStorage; as cópias automáticas são uma camada auxiliar. Se a inicialização
+    // do backup travar no Safari/iOS, liberamos o app e deixamos a rotina continuar em segundo plano.
+    const STARTUP_TIMEOUT = 3500;
+    let startupTimer;
+    const timeoutPromise = new Promise(resolve => {
+        startupTimer = setTimeout(() => resolve({ ready: true, timedOut: true, snapshots: [] }), STARTUP_TIMEOUT);
+    });
+    Promise.race([storage.init(), timeoutPromise]).then(result => {
+        clearTimeout(startupTimer);
+        if (result.timedOut) {
+            console.warn('Inicialização das cópias automáticas demorou; liberando o app sem bloquear a entrada.');
+            loadApp();
+            return;
+        }
+        if (!result.ready) { recoveryScreen(result); return; }
+        loadApp();
+    }).catch(error => {
+        showFatal('Não foi possível iniciar o app', 'Seus dados foram preservados. Tente recarregar; nenhuma informação foi apagada.', error);
+    });
 })();

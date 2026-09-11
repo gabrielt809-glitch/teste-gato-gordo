@@ -51,6 +51,8 @@
             #modal .gg-card-form .gg-entity-icon { background:rgba(59,130,246,.11); color:#60a5fa; border-color:rgba(96,165,250,.15); }
             #modal .gg-card-form .gg-limit-section { border-color:rgba(59,130,246,.12); background:rgba(59,130,246,.035); }
             #modal .gg-card-form .gg-money-field { color:#fff; }
+            #modal .gg-meta-form .gg-entity-icon { background:rgba(168,85,247,.11); color:#c084fc; border-color:rgba(192,132,252,.15); }
+            #modal .gg-meta-form .gg-money-field { color:#fff; }
             #modal .gg-danger-confirm .gg-confirm-icon {
                 width:58px; height:58px; margin:0 auto 14px; display:grid; place-items:center;
                 border-radius:19px; background:rgba(239,68,68,.11); color:#f87171;
@@ -146,7 +148,7 @@
         if (inner.classList.contains('gg-meta-form')) return;
         inner.classList.add('gg-entity-form', 'gg-meta-form');
         hero(inner, '🎯', 'Defina um objetivo e acompanhe seu progresso');
-        const money = inner.querySelector('input[id*="meta"][id*="valor"], input[id*="meta"][id*="objetivo"]');
+        const money = inner.querySelector('#f-meta-obj, #f-meta-atual');
         if (money) money.classList.add('gg-money-field');
         markSave(inner);
     }
@@ -174,7 +176,7 @@
         injectStyles();
         if (inner.querySelector('#f-conta-nome')) return decorateAccount(inner);
         if (inner.querySelector('#f-cartao-nome')) return decorateCard(inner);
-        if (inner.querySelector('#f-meta-nome') || inner.querySelector('#f-meta-objetivo')) return decorateMeta(inner);
+        if (inner.querySelector('#f-meta-nome') || inner.querySelector('#f-meta-obj')) return decorateMeta(inner);
         decorateConfirmation(inner);
     }
 

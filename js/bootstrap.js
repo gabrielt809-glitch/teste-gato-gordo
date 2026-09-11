@@ -115,12 +115,9 @@
         const link = document.createElement('link');
         link.id = 'gg-modal-v2-css'; link.rel = 'stylesheet'; link.href = 'css/premium-modal.css?v=2';
         document.head.appendChild(link);
-        const modalScript = document.createElement('script');
-        modalScript.src = 'js/premium-modal.js?v=2';
-        document.body.appendChild(modalScript);
-        const orderScript = document.createElement('script');
-        orderScript.src = 'js/modal-order-fix.js?v=1';
-        document.body.appendChild(orderScript);
+        const modalScript = document.createElement('script'); modalScript.src = 'js/premium-modal.js?v=2'; document.body.appendChild(modalScript);
+        const orderScript = document.createElement('script'); orderScript.src = 'js/modal-order-fix.js?v=1'; document.body.appendChild(orderScript);
+        const systemScript = document.createElement('script'); systemScript.src = 'js/modal-system.js?v=1'; document.body.appendChild(systemScript);
     }
     document.getElementById('login-form').textContent = 'Abrindo seus dados…';
     storage.init().then(result => {

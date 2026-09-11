@@ -67,8 +67,32 @@
 .gg-transfer-arrow { width:28px; height:28px; margin:-3px auto; display:flex; align-items:center; justify-content:center; border:1px solid rgba(245,158,11,.2); border-radius:50%; background:#111827; color:#fbbf24; font-weight:900; z-index:1; }
 .gg-type-hidden { display:none!important; }
 
+/* Refinamento visual — estados e hierarquia */
+#modal.gg-modal-v2 .gg-type-choices { margin-top:6px; margin-bottom:20px; }
+#modal.gg-modal-v2 .gg-type-choices .gg-choice { min-height:56px!important; font-size:.82rem!important; background:rgba(255,255,255,.028)!important; }
+#modal.gg-modal-v2 .gg-type-choices .gg-choice.is-active { background:linear-gradient(145deg,rgba(245,158,11,.17),rgba(245,158,11,.07))!important; border-color:rgba(245,158,11,.62)!important; color:#fcd34d!important; box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 24px rgba(245,158,11,.09)!important; }
+#modal.gg-modal-v2 .gg-type-choices .gg-choice:not(.is-active):hover { background:rgba(255,255,255,.05)!important; border-color:rgba(255,255,255,.13)!important; }
+#modal.gg-modal-v2 .gg-amount-input { caret-color:#fbbf24; }
+#modal.gg-modal-v2 .gg-amount-input:focus { border-color:rgba(245,158,11,.72)!important; box-shadow:0 0 0 5px rgba(245,158,11,.10),inset 0 1px 0 rgba(255,255,255,.05)!important; }
+#modal.gg-modal-v2 .gg-recurrence-choices { margin-top:5px; margin-bottom:8px; padding:5px; border:1px solid rgba(255,255,255,.055); border-radius:18px; background:rgba(255,255,255,.018); }
+#modal.gg-modal-v2 .gg-recurrence-choices .gg-choice { min-height:42px!important; border-color:transparent!important; background:transparent!important; color:rgba(203,213,225,.5)!important; font-size:.7rem!important; padding:6px 5px!important; }
+#modal.gg-modal-v2 .gg-recurrence-choices .gg-choice.is-active { background:rgba(255,255,255,.075)!important; border-color:rgba(255,255,255,.10)!important; color:#f8fafc!important; box-shadow:none!important; }
+#modal.gg-modal-v2 .gg-recurrence-choices .gg-choice:hover { color:rgba(248,250,252,.82)!important; }
+#modal.gg-modal-v2 .gg-card-context { margin:0 0 18px; border-color:rgba(245,158,11,.20); background:linear-gradient(135deg,rgba(245,158,11,.095),rgba(245,158,11,.035)); }
+#modal.gg-modal-v2 .gg-card-context strong:before { content:'💳'; margin-right:6px; }
+#modal.gg-modal-v2 .gg-transfer-flow { margin:4px 0 4px; padding:4px; border:1px solid rgba(255,255,255,.055); border-radius:22px; background:rgba(255,255,255,.018); }
+#modal.gg-modal-v2 .gg-transfer-node { background:rgba(255,255,255,.035); border-color:rgba(255,255,255,.07); }
+#modal.gg-modal-v2 .gg-transfer-node:hover { border-color:rgba(245,158,11,.28); background:rgba(245,158,11,.045); }
+#modal.gg-modal-v2 .gg-transfer-node:focus-within { border-color:rgba(245,158,11,.5); box-shadow:0 0 0 3px rgba(245,158,11,.08); }
+#modal.gg-modal-v2 .gg-save-button { min-height:62px!important; font-size:1.02rem!important; letter-spacing:-.015em; }
+#modal.gg-modal-v2 .gg-save-button:hover { filter:brightness(1.04); box-shadow:0 -10px 24px rgba(8,13,25,.86),0 14px 34px rgba(245,158,11,.25)!important; }
+#modal.gg-modal-v2 .gg-form-label + .gg-choice-group { margin-top:4px; }
+#modal.gg-modal-v2 .gg-hidden-context + .gg-card-context { margin-top:0; }
+#modal.gg-modal-v2 .gg-context-icon { box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+
 @keyframes ggModalIn { from{opacity:0;transform:translateY(14px) scale(.985)} to{opacity:1;transform:translateY(0) scale(1)} }
 @keyframes ggSheetIn { from{opacity:0;transform:translateY(18px) scale(.985)} to{opacity:1;transform:none} }
+@keyframes ggBottomSheetIn { from{opacity:0;transform:translateY(100%)} to{opacity:1;transform:translateY(0)} }
 @media (max-width:600px) {
   #modal.modal-premium { align-items:flex-end!important; padding:8px 8px max(8px,env(safe-area-inset-bottom))!important; }
   #modal.modal-premium .modal-content { width:100%!important; max-width:none!important; max-height:calc(100vh - env(safe-area-inset-top) - 8px)!important; border-radius:28px 28px 20px 20px!important; }
@@ -88,5 +112,16 @@
   #modal.gg-modal-v2 .gg-choice { min-height:48px!important; padding-inline:7px!important; }
   #modal.gg-modal-v2 .gg-choice-icon { display:none; }
   #modal.gg-modal-v2 .gg-amount-input { min-height:86px!important; font-size:2.2rem!important; }
+  #modal.gg-modal-v2 .gg-type-choices .gg-choice { min-height:54px!important; }
+  #modal.gg-modal-v2 .gg-recurrence-choices .gg-choice { min-height:40px!important; }
+  #modal.gg-modal-v2 .gg-card-context { border-radius:17px!important; }
+  #modal.gg-modal-v2 .gg-transfer-flow { border-radius:20px!important; }
+  #modal.gg-modal-v2 .gg-save-button { min-height:60px!important; }
+}
+@media (max-width:360px) {
+  #modal.gg-modal-v2 #modal-content-inner { padding-inline:14px!important; }
+  #modal.gg-modal-v2 .gg-choice { font-size:.73rem!important; }
+  #modal.gg-modal-v2 .gg-type-choices .gg-choice { min-height:52px!important; }
+  #modal.gg-modal-v2 .gg-amount-input { font-size:2rem!important; }
 }
 @media (prefers-reduced-motion:reduce) { #modal.modal-premium .modal-content,#modal.gg-modal-v2 .modal-content { animation:none; } #modal.modal-premium button,#modal.gg-modal-v2 .gg-choice,#modal.gg-modal-v2 .gg-transfer-node { transition:none!important; } }

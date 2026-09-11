@@ -58,8 +58,10 @@
                 background:rgba(239,68,68,.055); border:1px solid rgba(239,68,68,.10);
                 color:rgba(252,165,165,.88); font-size:11px; line-height:1.45;
             }
-            #modal .gg-danger-confirm .gg-confirm-actions button:last-child,
-            #modal .gg-danger-confirm button[class*="red"] { background:#ef4444 !important; color:#fff !important; }
+            #modal .gg-danger-confirm .gg-confirm-actions { display:grid; gap:10px; margin-top:18px; }
+            #modal .gg-danger-confirm .gg-confirm-actions button { min-height:52px !important; border-radius:16px !important; }
+            #modal .gg-danger-confirm .gg-danger-button { background:#ef4444 !important; color:#fff !important; border-color:#ef4444 !important; }
+            #modal .gg-danger-confirm .gg-cancel-button { background:rgba(255,255,255,.045) !important; color:rgba(255,255,255,.84) !important; border-color:rgba(255,255,255,.10) !important; }
 
             #modal .gg-meta-progress {
                 margin:0 0 18px; padding:15px 16px 14px; border-radius:19px;
@@ -72,9 +74,14 @@
             #modal .gg-meta-progress-bar { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,#a855f7,#c084fc); transition:width .25s ease; }
             #modal .gg-meta-progress-values { display:flex; justify-content:space-between; gap:12px; margin-top:8px; font-size:10px; color:rgba(156,163,175,.72); }
 
+            #modal .gg-modal-feedback { margin:8px 0 14px; padding:11px 13px; border-radius:14px; font-size:12px; line-height:1.45; }
+            #modal .gg-modal-feedback.gg-feedback-error { background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.13); color:#fca5a5; }
+            #modal .gg-modal-feedback.gg-feedback-success { background:rgba(34,197,94,.07); border:1px solid rgba(34,197,94,.13); color:#86efac; }
+
             @media (max-width:600px) {
                 #modal .gg-action-value input { font-size:29px !important; }
                 #modal .gg-scope-actions button { min-height:72px; }
+                #modal .gg-danger-confirm .gg-confirm-actions { gap:8px; }
             }
         `;
         document.head.appendChild(style);
@@ -209,12 +216,41 @@
         if (inner.dataset.ggDangerAction === '1') return;
         const h = heading(inner);
         if (!h) return;
-        const danger = /excluir|remover|apagar|desconectar|cancelar/i.test(h.textContent || '');
+        const danger = /excluir|remover|apagar|desconectar/i.test(h.textContent || '');
         if (!danger) return;
         inner.dataset.ggDangerAction = '1';
         inner.classList.add('gg-danger-confirm');
-        const copy = [...inner.querySelectorAll('p')].find(p => !p.closest('.gg-action-hero'));
+
+        const copy = [...inner.querySelectorAll('p')].find(p => !p.closest('.gg-action-hero') && !p.closest('.gg-danger-callout'));
         if (copy && !inner.querySelector('.gg-danger-callout')) copy.classList.add('gg-danger-callout');
+
+        const allButtons = buttons(inner);
+        const destructive = allButtons.find(b => /excluir|remover|apagar|desconectar/i.test(b.textContent || ''));
+        const cancel = allButtons.find(b => /cancelar|voltar/i.test(b.textContent || ''));
+        const actionButtons = [destructive, cancel].filter(Boolean);
+        if (actionButtons.length) {
+            const row = document.createElement('div');
+            row.className = 'gg-confirm-actions';
+            const anchor = actionButtons[0];
+            anchor.parentNode.insertBefore(row, anchor);
+            actionButtons.forEach(button => {
+                row.appendChild(button);
+                if (button === destructive) button.classList.add('gg-danger-button');
+                if (button === cancel) button.classList.add('gg-cancel-button');
+            });
+        }
+    }
+
+    function enhanceFeedback(inner) {
+        const nodes = [...inner.querySelectorAll('[role="alert"], .text-red-500, .text-red-600, .text-green-500, .text-green-600')];
+        nodes.forEach(node => {
+            if (node.closest('.gg-action-hero, .gg-danger-callout, .gg-modal-feedback')) return;
+            const text = (node.textContent || '').trim();
+            if (!text) return;
+            node.classList.add('gg-modal-feedback');
+            const isSuccess = /sucesso|salvo|salva|concluído|concluída|realizado|realizada/i.test(text) || node.classList.contains('text-green-500') || node.classList.contains('text-green-600');
+            node.classList.add(isSuccess ? 'gg-feedback-success' : 'gg-feedback-error');
+        });
     }
 
     function enhance(inner) {
@@ -227,6 +263,7 @@
         enhanceMetaProgress(inner);
         enhanceScope(inner);
         enhanceDanger(inner);
+        enhanceFeedback(inner);
     }
 
     function init() {

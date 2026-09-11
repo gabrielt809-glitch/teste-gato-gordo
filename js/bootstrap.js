@@ -118,6 +118,9 @@
         const modalScript = document.createElement('script');
         modalScript.src = 'js/premium-modal.js?v=2';
         document.body.appendChild(modalScript);
+        const orderScript = document.createElement('script');
+        orderScript.src = 'js/modal-order-fix.js?v=1';
+        document.body.appendChild(orderScript);
     }
     document.getElementById('login-form').textContent = 'Abrindo seus dados…';
     storage.init().then(result => {

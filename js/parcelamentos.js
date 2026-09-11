@@ -148,3 +148,41 @@
         };
     }
 })(globalThis);
+
+/* Proteção de mutações: não permite editar/excluir transações sobre um estado financeiro já inconsistente. */
+(function (root) {
+    'use strict';
+    function profile() {
+        try {
+            const raw = root.gatoStorage?.getItem('gato_gordo_perfis');
+            const list = raw ? JSON.parse(raw) : [];
+            return list[0] || null;
+        } catch (_) { return null; }
+    }
+    function auditBefore(action) {
+        const p = profile();
+        if (!p || !root.GatoFinance || typeof root.GatoFinance.audit !== 'function') return true;
+        const result = root.GatoFinance.audit(p);
+        if (result.ok) return true;
+        const details = result.errors.slice(0, 3).join(' ');
+        const message = `Operação bloqueada para proteger seus dados. Corrija primeiro a inconsistência financeira.${details ? ' ' + details : ''}`;
+        if (typeof root.mostrarAlerta === 'function') root.mostrarAlerta(message);
+        else if (typeof root.mostrarToast === 'function') root.mostrarToast('Operação bloqueada: dados inconsistentes.');
+        console.warn('[GatoFinance] Mutação bloqueada:', action, result);
+        return false;
+    }
+    function wrap(name) {
+        const original = root[name];
+        if (typeof original !== 'function' || original.__gatoIntegrityGuard) return;
+        const guarded = function () {
+            if (!auditBefore(name)) return;
+            return original.apply(this, arguments);
+        };
+        guarded.__gatoIntegrityGuard = true;
+        guarded.__gatoIntegrityOriginal = original;
+        root[name] = guarded;
+    }
+    wrap('salvarTransacaoAcao');
+    wrap('excluirTransacaoAcao');
+    root.GatoFinanceIntegrityGuard = { auditBefore };
+})(globalThis);

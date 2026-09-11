@@ -7,7 +7,7 @@
   const modal = () => document.getElementById('modal');
   const inner = () => document.getElementById('modal-content-inner');
   const SVG = {
-    transfer: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12"/><path d="m15 3 4 4-4 4"/><path d="M17 17H5"/><path d="m9 21-4-4 4-4"/></svg>',
+    transfer: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h12"/><path d="m15 3 4 4-4 4"/><path d="M17 17H5"/><path d="m9 21-4-4 4 4"/></svg>',
     bank: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-5 9 5"/><path d="M5 10v7M9 10v7M15 10v7M19 10v7"/><path d="M3 20h18"/></svg>'
   };
 
@@ -140,6 +140,12 @@
     field.parentElement?.querySelector('.gg-inline-error')?.remove();
   }
 
+  function parseAmount(value) {
+    let raw = String(value ?? '').replace(/[^0-9,.-]/g, '');
+    if (raw.includes(',')) raw = raw.replace(/\./g, '').replace(',', '.');
+    return Number(raw);
+  }
+
   function validateTransaction(content) {
     const type = document.getElementById('f-trans-tipo');
     const amount = document.getElementById('f-trans-valor');
@@ -152,8 +158,8 @@
     clearFieldError(category);
     clearFieldError(account);
     clearFieldError(destination);
-    const rawAmount = String(amount?.value ?? '').replace(/[^0-9,.-]/g, '').replace(',', '.');
-    if (!amount || !Number.isFinite(Number(rawAmount)) || Number(rawAmount) <= 0) {
+    const parsedAmount = parseAmount(amount?.value);
+    if (!amount || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       showFieldError(amount, 'Informe um valor maior que zero.');
       valid = false;
     }
@@ -181,9 +187,10 @@
     content.dataset.ggValidationReady = 'true';
     content.addEventListener('click', event => {
       const save = event.target.closest('.gg-save-button');
-      if (!save || !validateTransaction(content)) {
-        if (save) event.preventDefault();
-        return;
+      if (!save) return;
+      if (!validateTransaction(content)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
       }
     }, true);
     ['input', 'change'].forEach(type => content.addEventListener(type, event => {
@@ -205,7 +212,7 @@
     sync();
   }
 
-  function reorderTransactionFields(content) {
+  function reorderTransactionFields(content, currentType, fixedCardContext) {
     const root = content.querySelector('.gg-transaction-form') || content;
     const findGroup = id => document.getElementById(id)?.closest('.mb-3, .mb-4, .space-y-3 > div, [class*="mb-"]') || document.getElementById(id)?.parentElement;
     const groups = {
@@ -219,7 +226,15 @@
       destination: findGroup('f-trans-dest-group'),
       card: findGroup('f-trans-cartao-group')
     };
-    const order = [groups.type, groups.recurrence, groups.amount, groups.desc, groups.category, groups.date, groups.account, groups.destination, groups.card].filter(Boolean);
+    let order;
+    if (currentType === 'transferencia') {
+      order = [groups.type, groups.amount, groups.desc, groups.date, groups.recurrence, groups.account, groups.destination];
+    } else if (currentType === 'cartao' || fixedCardContext) {
+      order = [groups.type, groups.amount, groups.desc, groups.category, groups.date, groups.recurrence, groups.card];
+    } else {
+      order = [groups.type, groups.amount, groups.desc, groups.category, groups.date, groups.recurrence, groups.account];
+    }
+    order = order.filter(Boolean);
     if (order.length < 2) return;
     const parent = order.find(node => node.parentElement)?.parentElement;
     if (!parent || !order.every(node => node.parentElement === parent)) return;
@@ -238,8 +253,10 @@
     addHandle();
     const heading = content.querySelector('h3');
     const fixedCardContext = !type && !!document.getElementById('f-trans-cartao-group');
+    const initialHeading = heading?.textContent.trim() || '';
+    const isEditing = /^editar/i.test(initialHeading);
     if (heading) {
-      heading.textContent = fixedCardContext ? 'Nova compra no cartão' : (heading.textContent.includes('Editar') ? 'Editar transação' : 'Nova transação');
+      heading.textContent = fixedCardContext ? 'Nova compra no cartão' : (isEditing ? 'Editar transação' : 'Nova transação');
       heading.classList.add('gg-transaction-title');
     }
     if (type && !type.dataset.ggChoiceReady) {
@@ -292,8 +309,8 @@
       cardGroup?.classList.toggle('gg-hidden-context', currentType !== 'cartao' || fixedCardContext);
       if (currentType === 'cartao') addContextCard(content, document.getElementById('f-trans-cartao'));
       content.querySelector('.gg-card-context')?.classList.toggle('gg-hidden-context', currentType !== 'cartao' && !fixedCardContext);
-      if (heading) heading.textContent = currentType === 'cartao' || fixedCardContext ? 'Nova compra no cartão' : (heading.textContent.includes('Editar') ? 'Editar transação' : 'Nova transação');
-      reorderTransactionFields(content);
+      if (heading) heading.textContent = currentType === 'cartao' || fixedCardContext ? 'Nova compra no cartão' : (isEditing ? 'Editar transação' : 'Nova transação');
+      reorderTransactionFields(content, currentType, fixedCardContext);
     };
     if (type) type.addEventListener('change', updateVisibility);
     setupValidation(content);

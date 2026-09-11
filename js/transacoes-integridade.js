@@ -1,8 +1,8 @@
 (function (root) {
     'use strict';
 
-    // Camada de fronteira: mantém a implementação legada em app.js/parcelamentos.js,
-    // mas centraliza o contrato de segurança das mutações financeiras.
+    let instalado = false;
+
     function perfilAtual() {
         try {
             const raw = root.gatoStorage?.getItem('gato_gordo_perfis');
@@ -24,22 +24,38 @@
 
     function instalar(nome, acao) {
         const original = root[nome];
-        if (typeof original !== 'function') return;
-        root[nome] = function (...args) {
+        if (typeof original !== 'function' || original.__gatoIntegrityWrapped) return false;
+        const wrapped = function (...args) {
             if (!auditar(acao)) return;
             return original.apply(this, args);
         };
+        wrapped.__gatoIntegrityWrapped = true;
+        wrapped.__gatoIntegrityOriginal = original;
+        root[nome] = wrapped;
+        return true;
     }
 
-    // Exposto para testes e para futuras extrações: a próxima etapa pode mover
-    // a implementação das ações para cá sem alterar a UI que já chama essas APIs.
-    root.GatoMutacoesFinanceiras = {
-        auditBefore: auditar,
-        install: instalar
-    };
+    function tentarInstalar() {
+        if (instalado) return;
+        const nomes = [
+            ['salvarTransacaoAcao', 'editar transação'],
+            ['excluirTransacaoAcao', 'excluir transação'],
+            ['excluirConta', 'excluir conta'],
+            ['excluirCartao', 'excluir cartão']
+        ];
+        const encontrados = nomes.filter(([nome]) => typeof root[nome] === 'function').length;
+        if (!encontrados) return;
+        nomes.forEach(([nome, acao]) => instalar(nome, acao));
+        instalado = true;
+        root.GatoMutacoesFinanceiras = { auditBefore: auditar, install: instalar };
+    }
 
-    instalar('salvarTransacaoAcao', 'editar transação');
-    instalar('excluirTransacaoAcao', 'excluir transação');
-    instalar('excluirConta', 'excluir conta');
-    instalar('excluirCartao', 'excluir cartão');
+    // app.js é carregado dinamicamente pelo bootstrap; o retry desacopla a ordem
+    // de carregamento e prepara a futura extração das ações do app.js.
+    tentarInstalar();
+    const timer = root.setInterval(() => {
+        tentarInstalar();
+        if (instalado) root.clearInterval(timer);
+    }, 50);
+    root.addEventListener?.('load', tentarInstalar, { once: true });
 })(globalThis);
